@@ -1,0 +1,6 @@
+{
+  "name": "Gesture Art Installation",
+  "description": "An interactive hand gesture art installation built with React, Canvas 2D, and MediaPipe Hands, transitioning from a heavy-metal wasteland into a sunny modern city through a hand-shaking gesture.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
