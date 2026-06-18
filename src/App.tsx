@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sun, 
   Leaf, 
@@ -455,6 +455,12 @@ export default function App() {
   const [sceneState, setSceneState] = useState<SceneState>('collecting_seeds');
   const [seedsCollected, setSeedsCollected] = useState<number>(0);
   const [sunflowers, setSunflowers] = useState<Sunflower[]>([]);
+  const [cameraDetectorStatus, setCameraDetectorStatus] = useState<{
+    permissionState: 'pending' | 'allowed' | 'denied';
+    errorMessage: string;
+    isInitializing: boolean;
+    loadingStatusText: string;
+  } | null>(null);
 
   // Cover background slideshow cycle
   const [coverBgIndex, setCoverBgIndex] = useState<number>(0);
@@ -475,6 +481,18 @@ export default function App() {
   const [waveProgress, setWaveProgress] = useState<number>(0);
   const lastHandXRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
+  const lastActiveTimeRef = useRef<number>(0);
+  const lastPointerXRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (hasEntered || poetryIndex < 5) return;
+    const interval = setInterval(() => {
+      if (Date.now() - lastActiveTimeRef.current > 600) {
+        setWaveProgress((prev) => Math.max(0, prev - 0.8));
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [hasEntered, poetryIndex]);
 
   useEffect(() => {
     if (hasEntered || poetryIndex < 5) {
@@ -484,11 +502,7 @@ export default function App() {
     }
 
     if (trackedHands.length === 0) {
-      // Decay progress gracefully if hand leaves camera view
-      const interval = setInterval(() => {
-        setWaveProgress((prev) => Math.max(0, prev - 1.2));
-      }, 80);
-      return () => clearInterval(interval);
+      return;
     }
 
     const hand = trackedHands[0];
@@ -502,8 +516,9 @@ export default function App() {
       const dx = currentX - lastHandXRef.current;
       // Filter out micro-jittering to prevent idle triggering
       if (Math.abs(dx) > 0.007) {
+        lastActiveTimeRef.current = now;
         setWaveProgress((prev) => {
-          const increment = Math.abs(dx) * 200; // calibrated for energetic naturally-paced physical waving
+          const increment = Math.abs(dx) * 650; // calibrated for energetic naturally-paced physical waving
           const nextProg = Math.min(100, prev + increment);
           if (nextProg >= 100) {
             // Automatically transitions to interactive mode
@@ -513,15 +528,39 @@ export default function App() {
           }
           return nextProg;
         });
-      } else {
-        // Slow decay if holding hand stationary
-        setWaveProgress((prev) => Math.max(0, prev - 0.8));
       }
     }
 
     lastHandXRef.current = currentX;
     lastTimeRef.current = now;
   }, [trackedHands, hasEntered, poetryIndex]);
+
+  const handleCoverPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (hasEntered || poetryIndex < 5) return;
+    const currentX = e.clientX;
+    if (lastPointerXRef.current !== null) {
+      const dx = Math.abs(currentX - lastPointerXRef.current);
+      if (dx > 2) {
+        lastActiveTimeRef.current = Date.now();
+        setWaveProgress((prev) => {
+          const normalizedDx = dx / window.innerWidth;
+          const increment = normalizedDx * 750; // VERY responsive and satisfying pointer speed!
+          const nextProg = Math.min(100, prev + increment);
+          if (nextProg >= 100) {
+            setTimeout(() => {
+              handleEnterGallery();
+            }, 50);
+          }
+          return nextProg;
+        });
+      }
+    }
+    lastPointerXRef.current = currentX;
+  };
+
+  const handleCoverPointerLeaveOrUp = () => {
+    lastPointerXRef.current = null;
+  };
 
   // Hand waving detection state for activating from the interlude screen
   const [interludeWaveProgress, setInterludeWaveProgress] = useState<number>(0);
@@ -553,7 +592,7 @@ export default function App() {
       // Filter out micro-jittering to prevent idle triggering
       if (Math.abs(dx) > 0.007) {
         setInterludeWaveProgress((prev) => {
-          const increment = Math.abs(dx) * 200; // calibrated for energetic naturally-paced physical waving
+          const increment = Math.abs(dx) * 650; // calibrated for energetic naturally-paced physical waving
           const nextProg = Math.min(100, prev + increment);
           if (nextProg >= 100) {
             // Automatically transitions to wasteland stage
@@ -806,7 +845,13 @@ export default function App() {
       
       {/* 1. IMMERSIVE SPLASH SCREEN (Gallery Entrance - Welcomes visitor with poetic prophecy) */}
       {!hasEntered && (
-        <div className="absolute inset-0 z-50 bg-[#050507] flex flex-col items-center justify-center p-6 text-stone-100 transition-colors duration-1000">
+        <div 
+          className="absolute inset-0 z-50 bg-[#050507] flex flex-col items-center justify-center p-6 text-stone-100 transition-colors duration-1000 touch-none"
+          onPointerMove={handleCoverPointerMove}
+          onPointerLeave={handleCoverPointerLeaveOrUp}
+          onPointerUp={handleCoverPointerLeaveOrUp}
+          onPointerCancel={handleCoverPointerLeaveOrUp}
+        >
           
           {/* Background Slideshow (crossfade sequentially with 50%-60% opacity) */}
           <div className="absolute inset-0 select-none overflow-hidden pointer-events-none z-0">
@@ -942,18 +987,32 @@ export default function App() {
                   </div>
 
                   {/* Realtime Detection status text */}
-                  <div className="text-center space-y-1">
+                  <div className="text-center space-y-1.5 px-3">
                     <p className={`text-xs font-mono uppercase tracking-widest font-semibold transition-colors duration-300 ${
-                      trackedHands.length > 0 ? 'text-teal-400 font-bold' : 'text-amber-500/80 animate-pulse'
+                      trackedHands.length > 0 
+                        ? 'text-teal-400 font-bold' 
+                        : cameraDetectorStatus?.permissionState === 'denied' 
+                        ? 'text-red-400 font-bold animate-pulse'
+                        : cameraDetectorStatus?.isInitializing
+                        ? 'text-amber-400 font-bold animate-pulse'
+                        : 'text-amber-500/80 animate-pulse'
                     }`}>
                       {trackedHands.length > 0 
-                        ? '● 已捕获姿势轮廓，请开始左右挥手' 
+                        ? '● 已捕获姿势轮廓，请在镜头前挥手' 
+                        : cameraDetectorStatus?.permissionState === 'denied'
+                        ? '⚠️ 摄像头启动受限（已为您自动切换指尖点拨）'
+                        : cameraDetectorStatus?.isInitializing
+                        ? `⚡ 正在联机神经网络 (${cameraDetectorStatus.loadingStatusText || '准备启动中'})`
                         : '○ 传感器待机中... 请在镜头前挥动掌心'}
                     </p>
-                    <p className="text-[10px] text-stone-400 max-w-xs mx-auto font-sans leading-normal">
+                    <p className="text-[10px] text-stone-400 max-w-sm mx-auto font-sans leading-normal">
                       {trackedHands.length > 0 
                         ? '感应到您的大气共振，正在积蓄生命气流能量' 
-                        : '伸出双手并在摄像头前左右连续挥动，以建立意识共鸣'}
+                        : cameraDetectorStatus?.permissionState === 'denied'
+                        ? '支持双重智智联：免摄像头！请在当前画面上，单指滑动触控或游动鼠标，同样能瞬间填满共鸣条！'
+                        : cameraDetectorStatus?.isInitializing
+                        ? '正在预热 MediaPipe 网络镜像。在等待期间，您可随时在屏幕上以光标或手指划动提前唤醒互动！'
+                        : '支持双重感应：请把双手置于摄像头前，亦可在当前界面触屏滑动/鼠标滑过提前免摄像头进入。'}
                     </p>
                   </div>
 
@@ -970,7 +1029,7 @@ export default function App() {
                       <div 
                         className={`h-full rounded-full transition-all duration-100 ease-out ${
                           waveProgress > 60 
-                            ? 'bg-gradient-to-r from-teal-500 to-emerald-500 shadow-[0_0_8px_rgba(20,184,166,0.5)]' 
+                            ? 'bg-gradient-to-r from-teal-400 to-emerald-400 shadow-[0_0_8px_rgba(20,184,166,0.5)]' 
                             : 'bg-gradient-to-r from-amber-500 to-yellow-500'
                         }`}
                         style={{ width: `${waveProgress}%` }}
@@ -982,21 +1041,20 @@ export default function App() {
                 {/* Backup alternative manual click action */}
                 <div className="flex flex-col gap-1.5 items-center">
                   <span className="text-[9px] text-stone-500 uppercase tracking-widest font-light">
-                    若无摄象头权限，亦可直接手动进入
+                    若无摄像头，亦可随时极速手动进入
                   </span>
                   <button
                     onClick={handleEnterGallery}
-                    disabled={loadingAssets}
-                    className="group py-1.5 px-4 bg-stone-900/40 border border-stone-800/80 text-stone-400 hover:text-stone-200 hover:bg-stone-800/80 rounded-lg text-[10px] tracking-widest uppercase transition-all shadow-md active:scale-95 flex items-center gap-1"
+                    className="group py-1.5 px-4 bg-stone-900/40 border border-stone-800/80 text-stone-400 hover:text-stone-200 hover:bg-stone-800/80 rounded-lg text-[10px] tracking-widest uppercase transition-all shadow-md active:scale-95 flex items-center gap-1 cursor-pointer"
                     id="enter-gallery-btn"
                   >
-                    {loadingAssets ? '正在预热传感器...' : '手动备份点拨开启'}
-                    {!loadingAssets && <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />}
+                    手动备份点拨开启
+                    <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
                   </button>
                 </div>
 
                 <div className="mt-8 text-[9px] text-stone-500 leading-normal font-mono uppercase tracking-widest">
-                  CAMERA ACCESS REQUIRED FOR EMBEDDED HAND-TRACKING • DATA PRIVATE
+                  AI-POWERED SIGHT SENSOR • MULTI-MODAL HAND TRACKING • DATA PRIVATE
                 </div>
               </div>
             </div>
@@ -1226,6 +1284,7 @@ export default function App() {
           <CameraDetector 
             onHandsDetected={setTrackedHands} 
             isActive={hasEntered || (!hasEntered && poetryIndex >= 5)} 
+            onStatusChange={setCameraDetectorStatus}
           />
         )}
 

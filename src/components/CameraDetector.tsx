@@ -97,15 +97,32 @@ async function loadMediaPipeLibsWithFallback(onProgress: (status: string) => voi
 interface CameraDetectorProps {
   onHandsDetected: (hands: TrackedHand[]) => void;
   isActive: boolean;
+  onStatusChange?: (status: {
+    permissionState: 'pending' | 'allowed' | 'denied';
+    errorMessage: string;
+    isInitializing: boolean;
+    loadingStatusText: string;
+  }) => void;
 }
 
-export default function CameraDetector({ onHandsDetected, isActive }: CameraDetectorProps) {
+export default function CameraDetector({ onHandsDetected, isActive, onStatusChange }: CameraDetectorProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [permissionState, setPermissionState] = useState<'pending' | 'allowed' | 'denied'>('pending');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [loadingStatusText, setLoadingStatusText] = useState<string>('拉取 MediaPipe 手势资源...');
   const [isPipVisible, setIsPipVisible] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (onStatusChange) {
+      onStatusChange({
+        permissionState,
+        errorMessage,
+        isInitializing,
+        loadingStatusText,
+      });
+    }
+  }, [permissionState, errorMessage, isInitializing, loadingStatusText, onStatusChange]);
 
   const handsInstanceRef = useRef<any>(null);
   const cameraInstanceRef = useRef<any>(null);
@@ -331,34 +348,36 @@ export default function CameraDetector({ onHandsDetected, isActive }: CameraDete
       )}
 
       {/* 3. Small PIP Camera Preview component in the bottom-right corner */}
-      {permissionState === 'allowed' && (
-        <div className={`absolute bottom-6 right-6 pointer-events-auto transition-transform ${isPipVisible ? 'scale-100' : 'scale-0'}`}>
-          <div className="relative w-48 h-36 bg-black rounded-lg overflow-hidden border border-stone-700/60 shadow-2xl">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover scale-x-[-1]"
-            />
-            {/* HUD Scan Line */}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-500/5 to-transparent bg-[length:100%_4px] opacity-10" />
-            <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[8px] font-mono text-teal-400 border border-teal-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-              VIDEO HUD FEED
-            </div>
-            <button
-              onClick={() => setIsPipVisible(false)}
-              className="absolute top-2 right-2 p-0.5 bg-black/60 rounded text-stone-400 hover:text-white transition-colors"
-              title="隐藏预览"
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+      <div className={`absolute bottom-6 right-6 pointer-events-auto transition-all duration-300 ${
+        permissionState === 'allowed' && isPipVisible 
+          ? 'scale-100 opacity-100' 
+          : 'scale-0 opacity-0 pointer-events-none'
+      }`}>
+        <div className="relative w-48 h-36 bg-black rounded-lg overflow-hidden border border-stone-700/60 shadow-2xl">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover scale-x-[-1]"
+          />
+          {/* HUD Scan Line */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-500/5 to-transparent bg-[length:100%_4px] opacity-10" />
+          <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[8px] font-mono text-teal-400 border border-teal-500/20 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+            VIDEO HUD FEED
           </div>
+          <button
+            onClick={() => setIsPipVisible(false)}
+            className="absolute top-2 right-2 p-0.5 bg-black/60 rounded text-stone-400 hover:text-white transition-colors cursor-pointer"
+            title="隐藏预览"
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-      )}
+      </div>
 
       {/* 4. Restore PIP view button if minimized */}
       {permissionState === 'allowed' && !isPipVisible && (
