@@ -13,6 +13,87 @@ declare global {
   }
 }
 
+// ─── DYNAMIC SCRIPT LOADERS WITH DUAL CDN RESILIENCE ─────────────────
+function loadScript(url: string, timeoutMs: number = 6000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // If script is already inserted with same source, skip duplicate injects
+    const existing = document.querySelector(`script[src="${url}"]`);
+    if (existing) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = url;
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+
+    const timer = setTimeout(() => {
+      script.onload = null;
+      script.onerror = null;
+      try {
+        document.head.removeChild(script);
+      } catch (err) {}
+      reject(new Error(`加载脚本超时: ${url}`));
+    }, timeoutMs);
+
+    script.onload = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+
+    script.onerror = () => {
+      clearTimeout(timer);
+      try {
+        document.head.removeChild(script);
+      } catch (err) {}
+      reject(new Error(`加载脚本失败: ${url}`));
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+async function loadMediaPipeLibsWithFallback(onProgress: (status: string) => void) {
+  if (window.Hands && window.Camera) {
+    return { baseUrl: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands' };
+  }
+
+  const CDNS = [
+    {
+      name: 'jsDelivr 镜像库',
+      cameraUrl: 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js',
+      handsUrl: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js',
+      baseUrl: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands'
+    },
+    {
+      name: 'Unpkg 容灾节点',
+      cameraUrl: 'https://unpkg.com/@mediapipe/camera_utils/camera_utils.js',
+      handsUrl: 'https://unpkg.com/@mediapipe/hands/hands.js',
+      baseUrl: 'https://unpkg.com/@mediapipe/hands'
+    }
+  ];
+
+  let lastError = null;
+  for (const cdn of CDNS) {
+    try {
+      onProgress(`正在连接 ${cdn.name}...`);
+      await loadScript(cdn.cameraUrl, 4000);
+      await loadScript(cdn.handsUrl, 5000);
+      
+      if (window.Hands && window.Camera) {
+        console.log(`[MediaPipe] 成功通过 ${cdn.name} 加载核心引擎部件.`);
+        return { baseUrl: cdn.baseUrl };
+      }
+    } catch (err: any) {
+      console.warn(`[MediaPipe] 线路 ${cdn.name} 失败, 正在切换到备用节点...`, err.message);
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('所有 CDN 节点均请求超时。请检查网络，或点击手动点拨按钮免摄像头运行。');
+}
+
 interface CameraDetectorProps {
   onHandsDetected: (hands: TrackedHand[]) => void;
   isActive: boolean;
@@ -23,6 +104,7 @@ export default function CameraDetector({ onHandsDetected, isActive }: CameraDete
   const [permissionState, setPermissionState] = useState<'pending' | 'allowed' | 'denied'>('pending');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
+  const [loadingStatusText, setLoadingStatusText] = useState<string>('拉取 MediaPipe 手势资源...');
   const [isPipVisible, setIsPipVisible] = useState<boolean>(true);
 
   const handsInstanceRef = useRef<any>(null);
@@ -37,42 +119,93 @@ export default function CameraDetector({ onHandsDetected, isActive }: CameraDete
       setIsInitializing(true);
       setErrorMessage('');
 
-      // 1. Verify that MediaPipe is loaded from index.html CDN
-      const HandsLib = window.Hands;
-      const CameraLib = window.Camera;
+      // 1. Dynamic script loading with CDN fallbacks
+      let HandsLib = window.Hands;
+      let CameraLib = window.Camera;
+      let selectedCDNBaseUrl = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands';
 
       if (!HandsLib || !CameraLib) {
-        // Retry shortly in case CDN loads asynchronously
-        setTimeout(() => {
-          if (active) initWebcamAndTracking();
-        }, 1000);
-        return;
+        try {
+          const loadedInfo = await loadMediaPipeLibsWithFallback((status) => {
+            if (active) setLoadingStatusText(status);
+          });
+          HandsLib = window.Hands;
+          CameraLib = window.Camera;
+          selectedCDNBaseUrl = loadedInfo.baseUrl;
+        } catch (e: any) {
+          if (active) {
+            setPermissionState('denied');
+            setErrorMessage(
+              '加载手势识别库失败：网络连接较慢或部分 CDN 被拦截。建议点击“手动备份点拨开启”一键开启极速无摄像头互动模式。'
+            );
+            setIsInitializing(false);
+          }
+          return;
+        }
       }
 
+      if (!active) return;
+      setLoadingStatusText('请求获取摄像头画面...');
+
+      // 2. Progressive media constraints fallback for highest mobile compatibility
       try {
-        // 2. Request Camera permission and locate stream
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: 'user' }
-        });
+        const constraintOptions = [
+          { video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' } },
+          { video: { facingMode: 'user' } },
+          { video: true }
+        ];
+
+        let stream: MediaStream | null = null;
+        let lastStreamErr: any = null;
+
+        for (const option of constraintOptions) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(option);
+            if (stream) break;
+          } catch (e) {
+            lastStreamErr = e;
+          }
+        }
+
+        if (!stream) {
+          throw lastStreamErr || new Error('NotAllowedError');
+        }
+
+        if (!active) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
         setPermissionState('allowed');
       } catch (err: any) {
-        setPermissionState('denied');
-        setErrorMessage(
-          err.message || 
-          '无法获取摄像头权限。若您正在 Iframe 中预览，请点击右上角【新标签页打开】以允许浏览器弹出摄像头授权提示。'
-        );
-        setIsInitializing(false);
+        if (active) {
+          setPermissionState('denied');
+          
+          let customMsg = '无法调用摄像头。';
+          if (err.name === 'NotAllowedError' || err.message?.includes('denied') || err.message?.includes('Permission')) {
+            customMsg = '浏览器摄像头权限被拒绝。如果您在嵌入的 Iframe 中运行，请务必点击主界面右上角的【新标签页独立打开 ↗】进行授权，或者在下方直接使用【手动备份点拨开启】模式免摄像头游玩。';
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            customMsg = '未能检测到您设备上的可用摄像头（无硬件或未正确插入）。您可以直接点击下方【手动备份点拨】启动键盘/触控/鼠标互动。';
+          } else {
+            customMsg = `摄像头连接故障: ${err.message || err.name}。建议点击下方的【手动点拨模式】跳过本阶段。`;
+          }
+
+          setErrorMessage(customMsg);
+          setIsInitializing(false);
+        }
         return;
       }
 
+      if (!active) return;
+      setLoadingStatusText('正在编译并预热神经网络...');
+
       try {
-        // 3. Initialize MediaPipe Hands
+        // 3. Initialize MediaPipe Hands using corresponding CDN base
         const hands = new HandsLib({
-          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+          locateFile: (file: string) => `${selectedCDNBaseUrl}/${file}`
         });
 
         hands.setOptions({
@@ -114,7 +247,11 @@ export default function CameraDetector({ onHandsDetected, isActive }: CameraDete
           const camera = new CameraLib(videoRef.current, {
             onFrame: async () => {
               if (videoRef.current && active) {
-                await hands.send({ image: videoRef.current });
+                try {
+                  await hands.send({ image: videoRef.current });
+                } catch (e) {
+                  // Catch frame sending error gracefully to prevent crash on page transitions
+                }
               }
             },
             width: 640,
@@ -126,8 +263,10 @@ export default function CameraDetector({ onHandsDetected, isActive }: CameraDete
         }
 
       } catch (err: any) {
-        setErrorMessage('初始化手势识别算法失败: ' + err.message);
-        setIsInitializing(false);
+        if (active) {
+          setErrorMessage('初始化手手势识别算法失败: ' + err.message);
+          setIsInitializing(false);
+        }
       }
     }
 
@@ -186,7 +325,7 @@ export default function CameraDetector({ onHandsDetected, isActive }: CameraDete
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-teal-500 animate-pulse"></span>
             </span>
-            <span className="text-xs text-stone-300 font-mono">加载 MediaPipe 手势检测模型...</span>
+            <span className="text-xs text-stone-300 font-mono">{loadingStatusText}</span>
           </div>
         </div>
       )}

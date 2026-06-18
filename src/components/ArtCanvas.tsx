@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState, Dispatch, SetStateAction } from 'react';
+import { useEffect, useRef, useState, Dispatch, SetStateAction, useMemo, PointerEvent } from 'react';
 import { SceneState, Sunflower, TrackedHand, Particle, HopeSeed } from '../types';
 import { drawWasteland, drawModernCity, drawSunflower, drawHandTracker, drawGreyBackground } from '../utils/drawing';
 
@@ -42,6 +42,97 @@ export default function ArtCanvas({
 }: ArtCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Simulated pointer positions for backup mouse and touch operation
+  const [simulatedPointers, setSimulatedPointers] = useState<{ x: number; y: number; isRight: boolean; id: number }[]>([]);
+
+  // Convert raw screen pointers to a beautiful skeletal simulated hand
+  const effectiveHands = useMemo(() => {
+    if (trackedHands && trackedHands.length > 0) {
+      return trackedHands;
+    }
+
+    return simulatedPointers.map(p => {
+      const rx = 1 - p.x; // Counter-mirror adjustment so our click X aligns with canvas X
+      const ry = p.y;
+      
+      const landmarks = Array.from({ length: 21 }, (_, i) => {
+        let dx = 0;
+        let dy = 0;
+        if (i >= 1 && i <= 4) { // Thumb
+          dx = -0.045 + (i * 0.012);
+          dy = 0.015 - (i * 0.008);
+        } else if (i >= 5 && i <= 8) { // Index
+          dx = -0.012;
+          dy = -0.02 - ((i - 5) * 0.022);
+        } else if (i >= 9 && i <= 12) { // Middle
+          dx = 0.0;
+          dy = -0.028 - ((i - 9) * 0.024);
+        } else if (i >= 13 && i <= 16) { // Ring
+          dx = 0.012;
+          dy = -0.024 - ((i - 13) * 0.022);
+        } else if (i >= 17 && i <= 20) { // Pinky
+          dx = 0.024;
+          dy = -0.015 - ((i - 17) * 0.02);
+        }
+        if (p.isRight) {
+          dx = -dx;
+        }
+        return { x: rx + dx, y: ry + dy, z: 0 };
+      });
+
+      return {
+        label: p.isRight ? 'Right' : 'Left',
+        score: 0.99,
+        landmarks
+      } as TrackedHand;
+    });
+  }, [trackedHands, simulatedPointers]);
+
+  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') {
+      try { e.preventDefault(); } catch (err) {}
+    }
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const isRight = x > 0.5;
+
+    setSimulatedPointers(prev => {
+      const filtered = prev.filter(p => p.id !== e.pointerId);
+      return [...filtered, { x, y, isRight, id: e.pointerId }];
+    });
+  };
+
+  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+    setSimulatedPointers(prev => {
+      const found = prev.some(p => p.id === e.pointerId);
+      if (found) {
+        return prev.map(p => p.id === e.pointerId ? { ...p, x, y, isRight: x > 0.5 } : p);
+      } else {
+        // Track hover movement for desktop mice automatically
+        if (e.pointerType === 'mouse') {
+          return [{ x, y, isRight: x > 0.5, id: e.pointerId }];
+        }
+        return prev;
+      }
+    });
+  };
+
+  const handlePointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    setSimulatedPointers(prev => prev.filter(p => p.id !== e.pointerId));
+  };
+
+  const handlePointerLeave = (e: PointerEvent<HTMLDivElement>) => {
+    // Clear cursor simulation only when pointer fully exits the workspace
+    setSimulatedPointers(prev => prev.filter(p => p.id !== e.pointerId));
+  };
 
   // Canvas context and animation states
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -194,13 +285,13 @@ export default function ArtCanvas({
 
     // --- HOPE SEEDS COLLECTION COLLISION CHECK ---
     if (sceneState === 'collecting_seeds' && seedsCollected < 10) {
-      if (!activeSeed || trackedHands.length === 0) return;
+      if (!activeSeed || effectiveHands.length === 0) return;
 
       const seedX = activeSeed.x * dimensions.width;
       const seedY = activeSeed.y * dimensions.height;
 
       let wasTouched = false;
-      for (const hand of trackedHands) {
+      for (const hand of effectiveHands) {
         for (const pt of hand.landmarks) {
           // Flip horizontally to match canvas graphics
           const px = (1 - pt.x) * dimensions.width;
@@ -253,7 +344,7 @@ export default function ArtCanvas({
     }
 
     // Active gesture detection logic
-    if (trackedHands.length === 1) {
+    if (effectiveHands.length === 1) {
       handshakeFrameCounterRef.current = 0;
       
       // 1 hand → grow first sunflower
@@ -283,7 +374,7 @@ export default function ArtCanvas({
         }
       });
 
-    } else if (trackedHands.length === 2) {
+    } else if (effectiveHands.length === 2) {
       // 2 hands → grow/verify second sunflower, AND check for handshake
       setSunflowers((prev) => {
         let updated = [...prev];
@@ -326,8 +417,8 @@ export default function ArtCanvas({
       });
 
       // --- FINGERTIPS TOUCHING RECOGNITION (双手指尖相触 - FINGERTIPS CONNECTED) ---
-      const handA = trackedHands[0];
-      const handB = trackedHands[1];
+      const handA = effectiveHands[0];
+      const handB = effectiveHands[1];
 
       // Wrist keypoint is 0. Fingertips are 4 (Thumb), 8 (Index), 12 (Middle), 16 (Ring), 20 (Pinky).
       const indexA = handA.landmarks[8];
@@ -372,7 +463,7 @@ export default function ArtCanvas({
       handshakeFrameCounterRef.current = 0;
     }
   }, [
-    trackedHands, 
+    effectiveHands, 
     dimensions.width, 
     dimensions.height, 
     sceneState, 
@@ -607,7 +698,7 @@ export default function ArtCanvas({
 
       // E) --- CYBERNETIC HAND OVERLAYS (Only display tracked pointers in heavy-metal wasteland stage for HUD looks) ---
       if (sceneState === 'collecting_seeds' || sceneState === 'wasteland') {
-        trackedHands.forEach((hand) => {
+        effectiveHands.forEach((hand) => {
           drawHandTracker(ctx, hand, width, height, hand.label === 'Left');
         });
       }
@@ -671,7 +762,7 @@ export default function ArtCanvas({
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [dimensions, sceneState, sunflowers, trackedHands, activeSeed]);
+  }, [dimensions, sceneState, sunflowers, effectiveHands, activeSeed]);
 
   // Make sure we reset transition progress counters on resets
   useEffect(() => {
@@ -686,7 +777,15 @@ export default function ArtCanvas({
   }, [sceneState]);
 
   return (
-    <div ref={containerRef} className="relative w-full h-full bg-neutral-950 overflow-hidden">
+    <div 
+      ref={containerRef} 
+      className="relative w-full h-full bg-neutral-950 overflow-hidden touch-none select-none"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
+      onPointerCancel={handlePointerUp}
+    >
       <canvas ref={canvasRef} className="block w-full h-full" id="art-installation-canvas" />
     </div>
   );

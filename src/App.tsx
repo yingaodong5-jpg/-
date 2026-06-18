@@ -23,7 +23,7 @@ import { SceneState, Sunflower, TrackedHand } from './types';
 import ArtCanvas from './components/ArtCanvas';
 import CameraDetector from './components/CameraDetector';
 // @ts-ignore
-import wastelandBgImg from './assets/images/wasteland_bg_1781142029934.png';
+import wastelandBgImg from './assets/images/wasteland_bg_1781142029934.jpg';
 // @ts-ignore
 import wastelandBgImg1 from './assets/images/wasteland_bg_1_1781743921275.jpg';
 // @ts-ignore
@@ -1270,11 +1270,11 @@ export default function App() {
                 <div className="space-y-3.5 text-[11.5px] leading-relaxed text-stone-300">
                   <div className="p-2 bg-amber-950/30 border border-amber-500/20 rounded">
                     <span className="text-amber-400 font-bold font-mono">第1步 · 收集希望种子：</span>
-                    由于高空核裂变微粒及酸蚀侵染，地面向日葵无法直接破土。您需要先在空中收集 <span className="text-yellow-400 font-bold">10 颗希望植物种子</span> 进行温室复苏。
+                    由于地面遭酸蚀，您需要先在空中收集 <span className="text-yellow-400 font-bold">10 颗漂浮的破晓种子</span>。
                   </div>
                   <div className="p-2 rounded bg-stone-900 border border-stone-800">
-                    <span className="text-teal-400 font-bold font-mono">● 触碰收集:</span>
-                    在摄像头前挥动双手，屏幕中会出现手势骨骼点。用手势上的任意圆点触碰屏幕中央随机飘浮的 <span className="text-yellow-400 animate-pulse font-bold">发光种子</span> 即可瞬间收集。
+                    <span className="text-teal-400 font-bold font-mono">● 双重智控交互:</span>
+                    本装置支持 <strong>【手势感应】</strong> 与 <strong>【极速触控/鼠标】</strong>：在没有摄像头时，您可以直接用手指在屏幕上触碰滑动，也可以用鼠标游走掠过，全息手势将跟随您的指尖或光标快速收集种子！
                   </div>
 
                   <div className="p-3 bg-stone-900/80 border border-stone-800 rounded-lg shadow-inner flex flex-col gap-1.5">
@@ -1292,20 +1292,21 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-3.5 text-[11.5px] leading-relaxed text-stone-300">
-                  <div className={`p-2 rounded transition-colors ${trackedHands.length === 0 && sceneState === 'wasteland' ? 'bg-teal-950/30 border border-teal-500/20' : ''}`}>
-                    <span className="text-teal-400 font-bold font-mono">2. 探索复苏：</span>
-                    在废墟中央举起{" "}<span className="text-stone-100 font-semibold px-1 rounded bg-stone-800">1只手</span>，
-                    地面会感应出第一朵向日葵，发出翠绿嫩芽并伴有悠扬音效。
+                  <div className="p-2 rounded bg-stone-900/80 border border-stone-800">
+                    <span className="text-teal-400 font-bold font-mono">● 双重触手激活:</span>
+                    在摄像头前张开双臂，或<strong>直接在屏幕上单指/双指触控滑动、甚至同时用鼠标点击或滑动</strong>，均能感应出对应的生态造物！
                   </div>
-                  <div className={`p-2 rounded transition-colors ${trackedHands.length === 1 && sceneState === 'wasteland' ? 'bg-teal-950/30 border border-teal-500/20' : ''}`}>
-                    <span className="text-teal-400 font-bold font-mono">3. 共生繁茂：</span>
-                    同时张开{" "}<span className="text-stone-100 font-semibold px-1 rounded bg-stone-800">2只手</span>，
-                    即可促成互补，激发第2朵金色向日葵在废墟的右侧缓缓抽丝成长。
+                  <div className="p-2 rounded transition-colors bg-stone-900/40 border border-stone-800/50">
+                    <span className="text-teal-400 font-bold font-mono">2. 嫩芽一触：</span>
+                    触碰一侧或张开 <strong>1只手</strong> 激发地面感应，繁育第一朵翠绿向日葵嫩芽。
                   </div>
-                  <div className={`p-2 rounded transition-colors ${trackedHands.length === 2 && sceneState === 'wasteland' ? 'bg-yellow-950/30 border border-yellow-500/20 animate-pulse' : ''}`}>
-                    <span className="text-yellow-400 font-bold font-mono">4. 惊蛰新生：</span>
-                    让两只双手在镜头前{" "}<span className="text-yellow-400 font-semibold px-1 rounded bg-stone-800">指尖相触 (两手食指或中指指尖贴近)</span>。
-                    感应后将触发特写，大地震颤，金色极光爆发，世界重建为阳光生态绿城。
+                  <div className="p-2 rounded transition-colors bg-stone-900/40 border border-stone-800/50">
+                    <span className="text-teal-400 font-bold font-mono">3. 辉芒共生：</span>
+                    双指同时点击/滑动或张开 <strong>2只手</strong>，激发共生，生长第二朵金色向日葵。
+                  </div>
+                  <div className="p-2 rounded transition-colors bg-yellow-950/20 border border-yellow-500/20">
+                    <span className="text-yellow-400 font-bold font-mono">4. 双指贴合/指尖聚拢：</span>
+                    两只手的中指食指指尖靠拢（或<strong>在屏幕上做出用双指捏合贴近的手势/鼠标两点快速掠过</strong>），将立刻惊蛰爆发，重组现代阳光生态净化城！
                   </div>
                 </div>
               )}
