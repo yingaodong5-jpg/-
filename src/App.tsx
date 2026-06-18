@@ -16,13 +16,28 @@ import {
   Eye, 
   EyeOff, 
   ArrowRight,
-  Monitor
+  Monitor,
+  Hand
 } from 'lucide-react';
 import { SceneState, Sunflower, TrackedHand } from './types';
 import ArtCanvas from './components/ArtCanvas';
 import CameraDetector from './components/CameraDetector';
 // @ts-ignore
 import wastelandBgImg from './assets/images/wasteland_bg_1781142029934.png';
+// @ts-ignore
+import wastelandBgImg1 from './assets/images/wasteland_bg_1_1781743921275.jpg';
+// @ts-ignore
+import wastelandBgImg2 from './assets/images/wasteland_bg_2_1781743941904.jpg';
+// @ts-ignore
+import wastelandBgImg3 from './assets/images/wasteland_bg_3_1781744536780.jpg';
+// @ts-ignore
+import wastelandBgImg4 from './assets/images/wasteland_bg_4_1781744559706.jpg';
+// @ts-ignore
+import wastelandBgImg5 from './assets/images/wasteland_bg_5_1781744578099.jpg';
+// @ts-ignore
+import modernCityBgImg from './assets/images/wasteland_sunrays_bg_1781744924704.jpg';
+// @ts-ignore
+import collectingSeedsBgImg from './assets/images/collecting_seeds_bg_1781744195771.jpg';
 // @ts-ignore
 import sunflowerImgAsset from './assets/images/sunflower_asset_1781143850977.png';
 
@@ -375,6 +390,29 @@ class SoundSynth {
     } catch (e) {}
   }
 
+  playSeedPickupSound() {
+    if (!this.ctx || !this.isEnabled || this.ctx.state === 'suspended') return;
+    const t = this.ctx.currentTime;
+    try {
+      // Bright, satisfying rising acoustic arpeggio (C5 -> E5 -> G5 -> C6)
+      const freqs = [523.25, 659.25, 783.99, 1046.50];
+      freqs.forEach((freq, index) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t + index * 0.05);
+
+        gain.gain.setValueAtTime(0.045, t + index * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + index * 0.05 + 0.18);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(t + index * 0.05);
+        osc.stop(t + index * 0.05 + 0.22);
+      });
+    } catch (e) {}
+  }
+
   setMuted(muted: boolean) {
     this.isEnabled = !muted;
     if (this.ctx) {
@@ -394,34 +432,281 @@ class SoundSynth {
   }
 }
 
+const COVER_POEM_LINES = [
+  "核冬天的第73年。",
+  "地面的辐射早已杀死了所有破土的芽。",
+  "最后一朵向日葵，在枯萎前把全部的光，凝成了10颗希望的种子。",
+  "它们不敢落地，只能在寂静的高空漂流。",
+  "等待一双手，接住它们。"
+];
+
+const ENDING_POEM_LINES = [
+  "废墟不是世界的终点",
+  "阳光会记得",
+  "是你伸出的手，接住了人类的明天"
+];
+
 export default function App() {
   // Navigation & Interactive states
   const [hasEntered, setHasEntered] = useState<boolean>(false);
+  const [poetryIndex, setPoetryIndex] = useState<number>(0);
+  const [endingPoetryIndex, setEndingPoetryIndex] = useState<number>(-1);
   const [trackedHands, setTrackedHands] = useState<TrackedHand[]>([]);
-  const [sceneState, setSceneState] = useState<SceneState>('wasteland');
+  const [sceneState, setSceneState] = useState<SceneState>('collecting_seeds');
+  const [seedsCollected, setSeedsCollected] = useState<number>(0);
   const [sunflowers, setSunflowers] = useState<Sunflower[]>([]);
+
+  // Cover background slideshow cycle
+  const [coverBgIndex, setCoverBgIndex] = useState<number>(0);
+
+  useEffect(() => {
+    if (hasEntered) return;
+    const interval = setInterval(() => {
+      setCoverBgIndex((prev) => (prev + 1) % 5);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [hasEntered]);
+  
+  // Transition flow state between interaction stages
+  const [triggerWastelandTransition, setTriggerWastelandTransition] = useState<boolean>(false);
+  const [showInterlude, setShowInterlude] = useState<boolean>(false);
+
+  // Hand waving detection state for activating from the cover screen
+  const [waveProgress, setWaveProgress] = useState<number>(0);
+  const lastHandXRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (hasEntered || poetryIndex < 5) {
+      setWaveProgress(0);
+      lastHandXRef.current = null;
+      return;
+    }
+
+    if (trackedHands.length === 0) {
+      // Decay progress gracefully if hand leaves camera view
+      const interval = setInterval(() => {
+        setWaveProgress((prev) => Math.max(0, prev - 1.2));
+      }, 80);
+      return () => clearInterval(interval);
+    }
+
+    const hand = trackedHands[0];
+    const wrist = hand.landmarks[9]; // Middle finger base is a stable pivot
+    if (!wrist) return;
+
+    const currentX = wrist.x;
+    const now = Date.now();
+
+    if (lastHandXRef.current !== null) {
+      const dx = currentX - lastHandXRef.current;
+      // Filter out micro-jittering to prevent idle triggering
+      if (Math.abs(dx) > 0.007) {
+        setWaveProgress((prev) => {
+          const increment = Math.abs(dx) * 200; // calibrated for energetic naturally-paced physical waving
+          const nextProg = Math.min(100, prev + increment);
+          if (nextProg >= 100) {
+            // Automatically transitions to interactive mode
+            setTimeout(() => {
+              handleEnterGallery();
+            }, 50);
+          }
+          return nextProg;
+        });
+      } else {
+        // Slow decay if holding hand stationary
+        setWaveProgress((prev) => Math.max(0, prev - 0.8));
+      }
+    }
+
+    lastHandXRef.current = currentX;
+    lastTimeRef.current = now;
+  }, [trackedHands, hasEntered, poetryIndex]);
+
+  // Hand waving detection state for activating from the interlude screen
+  const [interludeWaveProgress, setInterludeWaveProgress] = useState<number>(0);
+  const lastInterludeHandXRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!showInterlude) {
+      setInterludeWaveProgress(0);
+      lastInterludeHandXRef.current = null;
+      return;
+    }
+
+    if (trackedHands.length === 0) {
+      // Decay progress gracefully if hand leaves camera view
+      const interval = setInterval(() => {
+        setInterludeWaveProgress((prev) => Math.max(0, prev - 1.2));
+      }, 80);
+      return () => clearInterval(interval);
+    }
+
+    const hand = trackedHands[0];
+    const wrist = hand.landmarks[9]; // Middle finger base is a stable pivot
+    if (!wrist) return;
+
+    const currentX = wrist.x;
+
+    if (lastInterludeHandXRef.current !== null) {
+      const dx = currentX - lastInterludeHandXRef.current;
+      // Filter out micro-jittering to prevent idle triggering
+      if (Math.abs(dx) > 0.007) {
+        setInterludeWaveProgress((prev) => {
+          const increment = Math.abs(dx) * 200; // calibrated for energetic naturally-paced physical waving
+          const nextProg = Math.min(100, prev + increment);
+          if (nextProg >= 100) {
+            // Automatically transitions to wasteland stage
+            setTimeout(() => {
+              handleStartWastelandTransition();
+            }, 50);
+          }
+          return nextProg;
+        });
+      } else {
+        // Slow decay if holding hand stationary
+        setInterludeWaveProgress((prev) => Math.max(0, prev - 0.8));
+      }
+    }
+
+    lastInterludeHandXRef.current = currentX;
+  }, [trackedHands, showInterlude]);
+
+  useEffect(() => {
+    if (hasEntered) return;
+    const interval = setInterval(() => {
+      setPoetryIndex((prev) => {
+        if (prev < COVER_POEM_LINES.length) {
+          return prev + 1;
+        }
+        clearInterval(interval);
+        return prev;
+      });
+    }, 2800);
+    return () => clearInterval(interval);
+  }, [hasEntered]);
+
+  const [isWhiteScreenSolid, setIsWhiteScreenSolid] = useState<boolean>(false);
+
+  // Start ending sequence when arriving at modern_city
+  useEffect(() => {
+    let timerId: any;
+    if (sceneState === 'modern_city') {
+      // Delay starting the transition by 3500ms so the user can watch the sunflowers grow and sway fully
+      timerId = setTimeout(() => {
+        setEndingPoetryIndex(0);
+      }, 3500);
+    } else {
+      setEndingPoetryIndex(-1);
+      setIsWhiteScreenSolid(false);
+    }
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [sceneState]);
+
+  // Handle fading to white and advancing poetry lines sequentially
+  useEffect(() => {
+    if (endingPoetryIndex === 0) {
+      const tBg = setTimeout(() => {
+        setIsWhiteScreenSolid(true);
+      }, 50);
+
+      const tNext = setTimeout(() => {
+        setEndingPoetryIndex(1);
+      }, 2500);
+
+      return () => {
+        clearTimeout(tBg);
+        clearTimeout(tNext);
+      };
+    }
+
+    if (endingPoetryIndex >= 1 && endingPoetryIndex < 4) {
+      const tLabel = setTimeout(() => {
+        setEndingPoetryIndex((prev) => prev + 1);
+      }, 2800);
+
+      return () => clearTimeout(tLabel);
+    }
+  }, [endingPoetryIndex]);
+  
+  // Trigger poetic cover when exactly 10 seeds are collected in stage 1
+  useEffect(() => {
+    if (seedsCollected >= 10 && sceneState === 'collecting_seeds') {
+      setShowInterlude(true);
+    }
+  }, [seedsCollected, sceneState]);
+
+  // Clean transition flags upon arriving at stage 2
+  useEffect(() => {
+    if (sceneState === 'wasteland') {
+      setTriggerWastelandTransition(false);
+    }
+  }, [sceneState]);
+
+  const handleStartWastelandTransition = () => {
+    setShowInterlude(false);
+    setTriggerWastelandTransition(true);
+  };
   
   // Preloading image assets immediately at app startup
   const [loadedBgImage, setLoadedBgImage] = useState<HTMLImageElement | null>(null);
+  const [loadedCollectingSeedsBgImage, setLoadedCollectingSeedsBgImage] = useState<HTMLImageElement | null>(null);
+  const [loadedModernCityBgImage, setLoadedModernCityBgImage] = useState<HTMLImageElement | null>(null);
   const [loadedSunflowerImage, setLoadedSunflowerImage] = useState<HTMLCanvasElement | null>(null);
   const [loadingAssets, setLoadingAssets] = useState<boolean>(true);
 
   // Buffer assets immediately on mount
   useEffect(() => {
     let bgReady = false;
+    let clBgReady = false;
+    let mcBgReady = false;
     let sfReady = false;
+
+    const checkAllLoaded = () => {
+      if (bgReady && clBgReady && mcBgReady && sfReady) {
+        setLoadingAssets(false);
+      }
+    };
 
     const img = new Image();
     img.src = wastelandBgImg;
     img.onload = () => {
       setLoadedBgImage(img);
       bgReady = true;
-      if (sfReady) setLoadingAssets(false);
+      checkAllLoaded();
     };
     img.onerror = () => {
       console.error('Failed preloading background.');
       bgReady = true; // prevent blocking forever on error
-      if (sfReady) setLoadingAssets(false);
+      checkAllLoaded();
+    };
+
+    const clImg = new Image();
+    clImg.src = collectingSeedsBgImg;
+    clImg.onload = () => {
+      setLoadedCollectingSeedsBgImage(clImg);
+      clBgReady = true;
+      checkAllLoaded();
+    };
+    clImg.onerror = () => {
+      console.error('Failed preloading collecting seeds background.');
+      clBgReady = true;
+      checkAllLoaded();
+    };
+
+    const mcImg = new Image();
+    mcImg.src = modernCityBgImg;
+    mcImg.onload = () => {
+      setLoadedModernCityBgImage(mcImg);
+      mcBgReady = true;
+      checkAllLoaded();
+    };
+    mcImg.onerror = () => {
+      console.error('Failed preloading modern city background.');
+      mcBgReady = true;
+      checkAllLoaded();
     };
 
     const sfImg = new Image();
@@ -430,12 +715,12 @@ export default function App() {
       const processed = makeWhiteTransparent(sfImg);
       setLoadedSunflowerImage(processed);
       sfReady = true;
-      if (bgReady) setLoadingAssets(false);
+      checkAllLoaded();
     };
     sfImg.onerror = () => {
       console.error('Failed preloading sunflower.');
       sfReady = true; // prevent blocking forever on error
-      if (bgReady) setLoadingAssets(false);
+      checkAllLoaded();
     };
   }, []);
 
@@ -486,9 +771,16 @@ export default function App() {
 
   // Safe reset function (clears all sunflower records, state nodes, tracking frame offsets)
   const handleReset = () => {
-    setSceneState('wasteland');
+    setHasEntered(false);
+    setPoetryIndex(0);
+    setEndingPoetryIndex(-1);
+    setSceneState('collecting_seeds');
+    setSeedsCollected(0);
     setSunflowers([]);
     setTrackedHands([]);
+    setTriggerWastelandTransition(false);
+    setShowInterlude(false);
+    setInterludeWaveProgress(0);
     spawnedSunflowerCountRef.current = 0;
     if (synthRef.current) {
       synthRef.current.setDroneState('wasteland');
@@ -512,69 +804,393 @@ export default function App() {
   return (
     <div className="relative w-screen h-screen bg-stone-950 overflow-hidden select-none select-none text-stone-100 flex flex-col font-sans">
       
-      {/* 1. IMMERSIVE SPLASH SCREEN (Gallery Entrance Modal) */}
+      {/* 1. IMMERSIVE SPLASH SCREEN (Gallery Entrance - Welcomes visitor with poetic prophecy) */}
       {!hasEntered && (
-        <div className="absolute inset-0 z-50 bg-radial from-stone-900 to-black flex items-center justify-center p-4">
-          {/* Moving background details */}
-          <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
-          <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-teal-500/10 blur-3xl pointer-events-none animate-pulse" />
-          <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-yellow-500/10 blur-3xl pointer-events-none animate-pulse" />
+        <div className="absolute inset-0 z-50 bg-[#050507] flex flex-col items-center justify-center p-6 text-stone-100 transition-colors duration-1000">
+          
+          {/* Background Slideshow (crossfade sequentially with 50%-60% opacity) */}
+          <div className="absolute inset-0 select-none overflow-hidden pointer-events-none z-0">
+            <img 
+              src={wastelandBgImg1} 
+              alt="Nuclear winter scene 1" 
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
+              style={{ opacity: coverBgIndex === 0 ? 0.55 : 0 }}
+              referrerPolicy="no-referrer"
+            />
+            <img 
+              src={wastelandBgImg2} 
+              alt="Nuclear winter scene 2" 
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
+              style={{ opacity: coverBgIndex === 1 ? 0.55 : 0 }}
+              referrerPolicy="no-referrer"
+            />
+            <img 
+              src={wastelandBgImg3} 
+              alt="Nuclear winter scene 3" 
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
+              style={{ opacity: coverBgIndex === 2 ? 0.55 : 0 }}
+              referrerPolicy="no-referrer"
+            />
+            <img 
+              src={wastelandBgImg4} 
+              alt="Nuclear winter scene 4" 
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
+              style={{ opacity: coverBgIndex === 3 ? 0.55 : 0 }}
+              referrerPolicy="no-referrer"
+            />
+            <img 
+              src={wastelandBgImg5} 
+              alt="Nuclear winter scene 5" 
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
+              style={{ opacity: coverBgIndex === 4 ? 0.55 : 0 }}
+              referrerPolicy="no-referrer"
+            />
+            {/* Ambient vignette background blur & dark tint over the image for readability */}
+            <div className="absolute inset-0 bg-[#050507]/45" />
+          </div>
 
-          <div className="relative max-w-xl w-full text-center p-8 bg-stone-900/60 backdrop-blur-xl border border-stone-800/80 rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+          {/* Poetry Slideshow Stage (poetryIndex < 5) */}
+          {poetryIndex < 5 ? (
+            <div className="relative flex flex-col items-center justify-center min-h-[300px] z-10">
+              {/* Skip Intro button */}
+              <button 
+                onClick={() => setPoetryIndex(5)} 
+                className="absolute top-[-80px] text-stone-600 hover:text-stone-400 text-xs tracking-widest uppercase px-3 py-1 border border-stone-800/40 rounded bg-stone-900/10 transition-colors pointer-events-auto select-none"
+              >
+                跳过故事 SKIP
+              </button>
+
+              <div 
+                key={poetryIndex} 
+                className="text-white text-base md:text-lg font-light tracking-[0.2em] leading-loose text-center select-none animate-poetry max-w-xl px-4 font-sans whitespace-pre-line"
+              >
+                {COVER_POEM_LINES[poetryIndex]}
+              </div>
+            </div>
+          ) : (
+            /* Interactive Activation Stage (poetryIndex >= 5) */
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
+              {/* Background amber sparks drifting upwards representing hope drifting listless in the dark sky */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {Array.from({ length: 24 }).map((_, i) => {
+                  const left = `${Math.random() * 90 + 5}%`;
+                  const size = `${Math.random() * 4 + 2}px`;
+                  const duration = `${10 + Math.random() * 8}s`;
+                  const driftX = `${(Math.random() - 0.5) * 100}px`;
+                  const delay = `${-Math.random() * 14}s`;
+                  return (
+                    <div
+                      key={i}
+                      className="absolute bottom-0 rounded-full bg-amber-500/45 blur-[1px] animate-spark"
+                      style={{
+                        left,
+                        width: size,
+                        height: size,
+                        '--drift-duration': duration,
+                        '--drift-x': driftX,
+                        animationDelay: delay,
+                      } as any}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Gentle ambient light aura */}
+              <div className="absolute top-[30%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-amber-500/5 blur-3xl pointer-events-none animate-pulse" />
+
+              <div className="relative max-w-xl w-full text-center p-8 bg-[#131317]/55 backdrop-blur-xl border border-stone-800/40 rounded-3xl shadow-2xl overflow-hidden animate-fade-in flex flex-col items-center">
+                {/* Visual leaf seed representing the 10 seeds waiting for the hand */}
+                <div className="relative w-24 h-24 my-4 flex items-center justify-center animate-float">
+                  <div className="absolute w-16 h-16 rounded-full bg-amber-500/10 blur-xl animate-pulse" style={{ animationDuration: '3s' }} />
+                  <div className="absolute w-10 h-10 rounded-full border border-amber-500/15 animate-ping opacity-25" style={{ animationDuration: '4s' }} />
+                  <div className="w-6 h-10 bg-gradient-to-b from-stone-50 via-amber-200 to-amber-500 rounded-b-full rounded-t-full shadow-[0_0_15px_rgba(245,158,11,0.5)] relative flex items-center justify-center">
+                    <div className="absolute inset-y-1 w-[1px] bg-[#ffffff]/60" />
+                  </div>
+                </div>
+
+                {/* Ambient instructions */}
+                <p className="text-stone-300 text-xs md:text-sm leading-relaxed mb-6 max-w-md mx-auto tracking-wide">
+                  这是一个基于手势感应的生态交互艺术装置。
+                  <br />
+                  请授权摄像头并伸展双手，用掌心温度感应并捕获高空漂流的 <span className="text-yellow-400 font-semibold">10 粒破晓之种</span>。
+                </p>
+
+                {/* Animated progress bar wave interface */}
+                <div className="w-full bg-[#1b1b23]/80 border border-stone-800/80 rounded-2xl p-5 mb-6 flex flex-col items-center gap-3">
+                  {/* Visual Hand Scanner Wave Feedback icon loop */}
+                  <div className="relative w-14 h-14 flex items-center justify-center">
+                    {/* Pulsing radar waves */}
+                    <div 
+                      className={`absolute inset-0 rounded-full border border-amber-500/20 transition-all duration-300 ${
+                        trackedHands.length > 0 ? 'scale-110 border-teal-500/40 animate-ping' : 'scale-100 animate-pulse'
+                      }`} 
+                    />
+                    
+                    {/* Glowing background */}
+                    <div 
+                      className={`absolute inset-1.5 rounded-full blur-md transition-all duration-500 ${
+                        trackedHands.length > 0 ? 'bg-teal-500/10' : 'bg-amber-500/5'
+                      }`} 
+                    />
+
+                    {/* Modern icon indicating hand wave gestures */}
+                    <Hand className={`w-7 h-7 z-10 transition-all duration-300 ${
+                      trackedHands.length > 0 
+                        ? 'text-teal-400 scale-110 rotate-[-12deg]' 
+                        : 'text-amber-500/60 animate-bounce'
+                    }`} />
+                  </div>
+
+                  {/* Realtime Detection status text */}
+                  <div className="text-center space-y-1">
+                    <p className={`text-xs font-mono uppercase tracking-widest font-semibold transition-colors duration-300 ${
+                      trackedHands.length > 0 ? 'text-teal-400 font-bold' : 'text-amber-500/80 animate-pulse'
+                    }`}>
+                      {trackedHands.length > 0 
+                        ? '● 已捕获姿势轮廓，请开始左右挥手' 
+                        : '○ 传感器待机中... 请在镜头前挥动掌心'}
+                    </p>
+                    <p className="text-[10px] text-stone-400 max-w-xs mx-auto font-sans leading-normal">
+                      {trackedHands.length > 0 
+                        ? '感应到您的大气共振，正在积蓄生命气流能量' 
+                        : '伸出双手并在摄像头前左右连续挥动，以建立意识共鸣'}
+                    </p>
+                  </div>
+
+                  {/* Progress slide bar representing hand wave power accumulated */}
+                  <div className="w-full space-y-1.5 mt-1">
+                    <div className="flex justify-between items-center text-[9px] font-mono tracking-wider">
+                      <span className="text-stone-500 uppercase">Resonance Activation Index</span>
+                      <span className={`font-semibold ${waveProgress > 50 ? 'text-teal-400 font-bold' : 'text-amber-500/80'}`}>
+                        {Math.round(waveProgress)}%
+                      </span>
+                    </div>
+                    
+                    <div className="w-full h-2.5 bg-stone-900 border border-stone-800 rounded-full overflow-hidden p-[1.5px]">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-100 ease-out ${
+                          waveProgress > 60 
+                            ? 'bg-gradient-to-r from-teal-500 to-emerald-500 shadow-[0_0_8px_rgba(20,184,166,0.5)]' 
+                            : 'bg-gradient-to-r from-amber-500 to-yellow-500'
+                        }`}
+                        style={{ width: `${waveProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Backup alternative manual click action */}
+                <div className="flex flex-col gap-1.5 items-center">
+                  <span className="text-[9px] text-stone-500 uppercase tracking-widest font-light">
+                    若无摄象头权限，亦可直接手动进入
+                  </span>
+                  <button
+                    onClick={handleEnterGallery}
+                    disabled={loadingAssets}
+                    className="group py-1.5 px-4 bg-stone-900/40 border border-stone-800/80 text-stone-400 hover:text-stone-200 hover:bg-stone-800/80 rounded-lg text-[10px] tracking-widest uppercase transition-all shadow-md active:scale-95 flex items-center gap-1"
+                    id="enter-gallery-btn"
+                  >
+                    {loadingAssets ? '正在预热传感器...' : '手动备份点拨开启'}
+                    {!loadingAssets && <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />}
+                  </button>
+                </div>
+
+                <div className="mt-8 text-[9px] text-stone-500 leading-normal font-mono uppercase tracking-widest">
+                  CAMERA ACCESS REQUIRED FOR EMBEDDED HAND-TRACKING • DATA PRIVATE
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2.5 POETIC OUTRO / ENDING COVER (Triggered after scene state transitions to modern_city) */}
+      {endingPoetryIndex >= 0 && (
+        <div 
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6 transition-all duration-[2500ms] ease-in-out select-none text-stone-900"
+          style={{
+            backgroundColor: isWhiteScreenSolid ? '#fefefe' : 'rgba(13, 13, 16, 0)',
+          }}
+        >
+          {/* Subtle slow drifting amber pollen sparks for ecological warmth */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {Array.from({ length: 12 }).map((_, i) => {
+              const left = `${Math.random() * 90 + 5}%`;
+              const size = `${Math.random() * 4 + 2}px`;
+              const duration = `${12 + Math.random() * 8}s`;
+              const driftX = `${(Math.random() - 0.5) * 60}px`;
+              const delay = `${-Math.random() * 12}s`;
+              return (
+                <div
+                  key={i}
+                  className="absolute bottom-0 rounded-full bg-amber-500/10 blur-[1px] animate-spark"
+                  style={{
+                    left,
+                    width: size,
+                    height: size,
+                    '--drift-duration': duration,
+                    '--drift-x': driftX,
+                    animationDelay: delay,
+                  } as any}
+                />
+              );
+            })}
+          </div>
+
+          <div className="relative max-w-xl w-full text-center flex flex-col items-center justify-center min-h-[300px] z-10 transition-opacity duration-1000">
+            {endingPoetryIndex === 0 ? (
+              // Empty element during pure-white transition phase to prevent early text layout rendering
+              <div className="h-2" />
+            ) : endingPoetryIndex >= 1 && endingPoetryIndex <= 3 ? (
+              <div 
+                key={endingPoetryIndex}
+                className="text-stone-900 text-lg md:text-xl font-light tracking-[0.25em] leading-loose text-center select-none animate-poetry-slow max-w-xl px-4 font-sans whitespace-pre-line"
+              >
+                {ENDING_POEM_LINES[endingPoetryIndex - 1]}
+              </div>
+            ) : (
+              /* Final state: Show all lines stacked beautifully with premium gallery aesthetics and a minimalist design */
+              <div className="animate-fade-in flex flex-col items-center max-w-lg">
+                {/* Seed bloom design elements */}
+                <div className="w-16 h-[1.5px] bg-stone-300 mb-8" />
+                
+                <div className="space-y-6 text-base md:text-lg font-light tracking-[0.22em] leading-relaxed text-stone-800 mb-12 select-none">
+                  <p className="animate-fade-in" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>废墟不是世界的终点</p>
+                  <p className="animate-fade-in" style={{ animationDelay: '1.2s', animationFillMode: 'both' }}>阳光会记得</p>
+                  <p className="text-stone-950 font-medium animate-fade-in text-lg md:text-xl" style={{ animationDelay: '2.2s', animationFillMode: 'both' }}>
+                    是你伸出的手，接住了人类的明天
+                  </p>
+                </div>
+
+                <div className="w-16 h-[1.5px] bg-stone-300 mb-10" />
+
+                <button
+                  onClick={handleReset}
+                  className="group py-3.5 px-8 bg-stone-900 border border-stone-800 text-stone-50 hover:bg-stone-950 hover:border-black rounded-xl font-semibold text-xs tracking-widest uppercase transition-all shadow-lg active:scale-95 flex items-center gap-2 animate-fade-in"
+                  style={{ animationDelay: '3.2s', animationFillMode: 'both' }}
+                >
+                  <RotateCcw className="w-4 h-4 transition-transform group-hover:rotate-[-45deg]" />
+                  重新体验本场交互装置
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 1.5 POETIC INTERLUDE COVER (Triggered after 10 seeds are collected, between stage 1 and stage 2) */}
+      {showInterlude && (
+        <div className="absolute inset-0 z-50 bg-[#0d0d10] flex items-center justify-center p-4">
+          {/* Subtle slow floating background ambient spots */}
+          <div className="absolute inset-0 bg-radial from-stone-900 via-[#0a0a0c] to-black opacity-80 pointer-events-none" />
+          <div className="absolute top-[25%] left-[20%] w-80 h-80 rounded-full bg-teal-500/5 blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute bottom-[25%] right-[20%] w-80 h-80 rounded-full bg-stone-700/10 blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '6s' }} />
+
+          <div className="relative max-w-xl w-full text-center p-8 bg-[#131317]/50 backdrop-blur-xl border border-stone-800/40 rounded-3xl shadow-2xl overflow-hidden animate-fade-in flex flex-col items-center">
             {/* Top thematic visual decor */}
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className="w-10 h-1px bg-gradient-to-r from-transparent to-stone-500" />
-              <div className="text-stone-400 text-xs font-mono tracking-widest">ECO-ART INSTALLATION</div>
+              <div className="text-stone-400 text-xs font-mono tracking-widest">ECO-ART TRANSITION</div>
               <div className="w-10 h-1px bg-gradient-to-l from-transparent to-stone-500" />
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 text-stone-100 heading-font">
-              废墟与盛绽
-            </h1>
-            <p className="text-yellow-400 text-sm font-mono tracking-wider mb-6">
-              RUINS &amp; BLOOMING
+            {/* Standard Welcome Titles */}
+            <div className="space-y-4 mb-8 select-none">
+              <h1 className="text-4xl md:text-5xl font-extrabold tracking-[0.2em] mb-4 text-stone-100 heading-font">
+                废墟与盛绽
+              </h1>
+              <div className="w-8 h-0.5 bg-teal-500/40 mx-auto" />
+              <p className="text-stone-400 text-xs font-mono tracking-widest uppercase animate-pulse">
+                RUINS &amp; BLOOMING / SEED REAWAKENING
+              </p>
+            </div>
+
+            <p className="text-stone-300 text-xs md:text-sm leading-relaxed mb-6 max-w-md mx-auto tracking-wide">
+              十粒微光，十颗希望之种已收纳完毕。
+              <br />
+              当冷硬的重工业废墟遇到人类指尖的温度，生命将在这里重新发芽。
+              <br />
+              请在镜头前伸出双手并<span className="text-teal-400 font-semibold">左右挥手掌心</span>，唤醒废墟之下的生机萌发。
             </p>
 
-            <p className="text-stone-400 text-sm md:text-base leading-relaxed mb-8 max-w-md mx-auto">
-              这是一个基于 MediaPipe 的手势交互艺术装置。
-              一曲未来重金属废墟下的生态挽歌：当冷硬的钢铁遇到温暖的碰触，绿色生命将在这里萌发、盛绽并重建美好的明天。
-            </p>
+            {/* Hand wave radar detector and progress bar */}
+            <div className="w-full bg-[#1b1b23]/80 border border-stone-800/80 rounded-2xl p-5 mb-6 flex flex-col items-center gap-3">
+              <div className="relative w-14 h-14 flex items-center justify-center">
+                {/* Pulsing radar waves */}
+                <div 
+                  className={`absolute inset-0 rounded-full border border-teal-500/20 transition-all duration-300 ${
+                    trackedHands.length > 0 ? 'scale-110 border-teal-500/40 animate-ping' : 'scale-100 animate-pulse'
+                  }`} 
+                />
+                
+                {/* Glowing background */}
+                <div 
+                  className={`absolute inset-1.5 rounded-full blur-md transition-all duration-500 ${
+                    trackedHands.length > 0 ? 'bg-teal-500/10' : 'bg-teal-500/5'
+                  }`} 
+                />
 
-            {/* Instruction cards inside splash */}
-            <div className="grid grid-cols-3 gap-3 text-left mb-8 max-w-lg mx-auto">
-              <div className="bg-black/30 border border-stone-800/50 p-3.5 rounded-lg text-center">
-                <div className="w-8 h-8 rounded-full bg-stone-800/50 flex items-center justify-center mx-auto mb-2 text-teal-400 text-xs font-bold">1</div>
-                <div className="text-[11px] font-semibold text-stone-200">伸出一只手</div>
-                <div className="text-[9px] text-stone-500 mt-1">地面萌生第一朵嫩绿向日葵</div>
+                {/* Modern symbol representing gesture wave recognition */}
+                <Hand className={`w-7 h-7 z-10 transition-all duration-300 ${
+                  trackedHands.length > 0 
+                    ? 'text-teal-400 scale-110 rotate-[-12deg]' 
+                    : 'text-stone-400/60 animate-bounce'
+                }`} />
               </div>
-              <div className="bg-black/30 border border-stone-800/50 p-3.5 rounded-lg text-center">
-                <div className="w-8 h-8 rounded-full bg-stone-800/50 flex items-center justify-center mx-auto mb-2 text-teal-400 text-xs font-bold">2</div>
-                <div className="text-[11px] font-semibold text-stone-200">伸出双手</div>
-                <div className="text-[9px] text-stone-500 mt-1">孕育出另一朵金色向日葵</div>
+
+              {/* Live signal label */}
+              <div className="text-center space-y-1">
+                <p className={`text-xs font-mono uppercase tracking-widest font-semibold transition-colors duration-300 ${
+                  trackedHands.length > 0 ? 'text-teal-400 font-bold' : 'text-stone-500 animate-pulse'
+                }`}>
+                  {trackedHands.length > 0 
+                    ? '● 已捕捉手势，请开始左右挥手' 
+                    : '○ 传感器就绪... 请在镜头前挥动掌心'}
+                </p>
+                <p className="text-[10px] text-stone-400 max-w-xs mx-auto font-sans leading-normal">
+                  {trackedHands.length > 0 
+                    ? '感应到大气环境气流变化，生命正在快速复苏' 
+                    : '左右挥手，加速土壤下休眠向日葵球茎的根系温热'}
+                </p>
               </div>
-              <div className="bg-black/30 border border-stone-800/50 p-3.5 rounded-lg text-center">
-                <div className="w-8 h-8 rounded-full bg-stone-800/50 flex items-center justify-center mx-auto mb-2 text-yellow-400 text-xs font-bold">3</div>
-                <div className="text-[11px] font-semibold text-stone-200">双手指尖相触</div>
-                <div className="text-[9px] text-stone-500 mt-1">金色光华爆发，重塑现代绿城</div>
+
+              {/* Progress activation slider */}
+              <div className="w-full space-y-1.5 mt-1">
+                <div className="flex justify-between items-center text-[9px] font-mono tracking-wider">
+                  <span className="text-stone-500 uppercase">Eco Awake Syndrome Rate</span>
+                  <span className={`font-semibold ${interludeWaveProgress > 50 ? 'text-teal-400 font-bold' : 'text-stone-400'}`}>
+                    {Math.round(interludeWaveProgress)}%
+                  </span>
+                </div>
+                
+                <div className="w-full h-2.5 bg-stone-900 border border-stone-800 rounded-full overflow-hidden p-[1.5px]">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-100 ease-out bg-gradient-to-r from-teal-500 to-emerald-500 ${
+                      interludeWaveProgress > 60 ? 'shadow-[0_0_8px_rgba(20,184,166,0.5)]' : ''
+                    }`}
+                    style={{ width: `${interludeWaveProgress}%` }}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            {/* Manual override button for accessibility fallback */}
+            <div className="flex flex-col gap-1.5 items-center">
+              <span className="text-[9px] text-stone-500 uppercase tracking-widest font-light">
+                选项：亦可直接备份手动唤醒
+              </span>
               <button
-                onClick={handleEnterGallery}
-                disabled={loadingAssets}
-                className="group py-3 px-8 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-stone-950 rounded-xl font-bold text-sm tracking-wider transition-all shadow-xl shadow-yellow-500/10 hover:shadow-yellow-500/20 active:scale-95 flex items-center gap-2 disabled:from-stone-800 disabled:to-stone-700 disabled:text-stone-500 disabled:shadow-none disabled:cursor-not-allowed"
-                id="enter-gallery-btn"
+                onClick={handleStartWastelandTransition}
+                className="group py-1.5 px-4 bg-stone-900/40 border border-stone-800/80 text-stone-400 hover:text-stone-200 hover:bg-stone-800/80 rounded-lg text-[10px] tracking-widest uppercase transition-all shadow-md active:scale-95 flex items-center gap-1"
+                id="awaken-hope-btn"
               >
-                {loadingAssets ? '艺术资源载入中...' : '开启互动画廊'}
-                {!loadingAssets && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
+                备份温控唤醒
+                <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
               </button>
             </div>
 
-            <div className="mt-8 text-[10px] text-stone-500 leading-normal">
-              本装置需要访问您的摄像头以识别手势变化。
-              <br />
-              所有处理均在浏览器本地安全运行，不上传任何图像数据。
+            <div className="mt-8 text-[9px] text-stone-500 leading-normal font-mono uppercase tracking-widest">
+              STEP 1 COMPLETE • HARVEST STAGE OVER
             </div>
           </div>
         </div>
@@ -588,18 +1204,28 @@ export default function App() {
           trackedHands={trackedHands}
           sceneState={sceneState}
           onSceneStateChange={setSceneState}
+          seedsCollected={seedsCollected}
+          setSeedsCollected={setSeedsCollected}
           sunflowers={sunflowers}
           setSunflowers={setSunflowers}
           onHandshakeTriggered={handleHandshakeTriggered}
+          onSeedCollected={() => {
+            if (synthRef.current) {
+              synthRef.current.playSeedPickupSound();
+            }
+          }}
           loadedBgImage={loadedBgImage}
+          loadedCollectingSeedsBgImage={loadedCollectingSeedsBgImage}
+          loadedModernCityBgImage={loadedModernCityBgImage}
           loadedSunflowerImage={loadedSunflowerImage}
+          triggerWastelandTransition={triggerWastelandTransition}
         />
 
         {/* MediaPipe Hands webcam driver */}
-        {hasEntered && (
+        {(hasEntered || (!hasEntered && poetryIndex >= 5)) && (
           <CameraDetector 
             onHandsDetected={setTrackedHands} 
-            isActive={hasEntered} 
+            isActive={hasEntered || (!hasEntered && poetryIndex >= 5)} 
           />
         )}
 
@@ -615,16 +1241,17 @@ export default function App() {
             </h2>
             <div className="text-stone-400 text-xs mt-1 font-mono">
               场景: {' '}
-              {sceneState === 'wasteland' && <span className="text-rose-400">未来机械废墟 (Heavy Industrial Waste)</span>}
+              {sceneState === 'collecting_seeds' && <span className="text-purple-400 animate-pulse">① 生机复苏：收集希望种子 ({seedsCollected}/10)</span>}
+              {sceneState === 'wasteland' && <span className="text-rose-400">② 废墟繁育：阳光向日葵生机长成</span>}
               {sceneState === 'transition' && <span className="text-amber-400 animate-pulse">生态重置中 (Transition Resetting...)</span>}
-              {sceneState === 'modern_city' && <span className="text-green-400 neon-glow">现代阳光城市 (Modern Solar Paradise)</span>}
+              {sceneState === 'modern_city' && <span className="text-green-400 neon-glow">③ 现代阳光城市 (Modern Solar Paradise)</span>}
             </div>
           </div>
         </div>
 
         {/* HUD OVERLAY - INTERACTION INSTRUCTION OVERLAY PANEL (Togglable) */}
         {showGuide && (
-          <div className="absolute top-6 right-6 z-30 w-72 pointer-events-none animate-fade-in">
+          <div className="absolute top-6 right-6 z-30 w-80 pointer-events-none animate-fade-in">
             <div className="bg-stone-950/85 backdrop-blur-md border border-stone-800/80 p-4 rounded-xl shadow-xl pointer-events-auto">
               <div className="flex items-center justify-between mb-3 border-b border-stone-800 pb-2">
                 <span className="text-[#a8a29e] text-xs font-semibold tracking-wider flex items-center gap-1">
@@ -639,23 +1266,49 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="space-y-3.5 text-[11.5px] leading-relaxed text-stone-300">
-                <div className={`p-2 rounded transition-colors ${trackedHands.length === 0 && sceneState === 'wasteland' ? 'bg-teal-950/30 border border-teal-500/20' : ''}`}>
-                  <span className="text-teal-400 font-bold font-mono">1. 探索复苏：</span>
-                  在废墟中央举起{" "}<span className="text-stone-100 font-semibold px-1 rounded bg-stone-800">1只手</span>，
-                  地面会感应出第一朵向日葵，发出翠绿嫩芽并伴有悠扬音效。
+              {sceneState === 'collecting_seeds' ? (
+                <div className="space-y-3.5 text-[11.5px] leading-relaxed text-stone-300">
+                  <div className="p-2 bg-amber-950/30 border border-amber-500/20 rounded">
+                    <span className="text-amber-400 font-bold font-mono">第1步 · 收集希望种子：</span>
+                    由于高空核裂变微粒及酸蚀侵染，地面向日葵无法直接破土。您需要先在空中收集 <span className="text-yellow-400 font-bold">10 颗希望植物种子</span> 进行温室复苏。
+                  </div>
+                  <div className="p-2 rounded bg-stone-900 border border-stone-800">
+                    <span className="text-teal-400 font-bold font-mono">● 触碰收集:</span>
+                    在摄像头前挥动双手，屏幕中会出现手势骨骼点。用手势上的任意圆点触碰屏幕中央随机飘浮的 <span className="text-yellow-400 animate-pulse font-bold">发光种子</span> 即可瞬间收集。
+                  </div>
+
+                  <div className="p-3 bg-stone-900/80 border border-stone-800 rounded-lg shadow-inner flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center text-[10.5px]">
+                      <span className="text-amber-400 font-mono font-bold tracking-wider">希望能量注入圈:</span>
+                      <span className="text-stone-100 font-sans font-bold">{seedsCollected} / 10 粒</span>
+                    </div>
+                    <div className="w-full bg-stone-950 border border-stone-800 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${seedsCollected * 10}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className={`p-2 rounded transition-colors ${trackedHands.length === 1 && sceneState === 'wasteland' ? 'bg-teal-950/30 border border-teal-500/20' : ''}`}>
-                  <span className="text-teal-400 font-bold font-mono">2. 共生繁茂：</span>
-                  同时张开{" "}<span className="text-stone-100 font-semibold px-1 rounded bg-stone-800">2只手</span>，
-                  即可促成互补，激发第2朵金色向日葵在废墟的右侧缓缓抽丝成长。
+              ) : (
+                <div className="space-y-3.5 text-[11.5px] leading-relaxed text-stone-300">
+                  <div className={`p-2 rounded transition-colors ${trackedHands.length === 0 && sceneState === 'wasteland' ? 'bg-teal-950/30 border border-teal-500/20' : ''}`}>
+                    <span className="text-teal-400 font-bold font-mono">2. 探索复苏：</span>
+                    在废墟中央举起{" "}<span className="text-stone-100 font-semibold px-1 rounded bg-stone-800">1只手</span>，
+                    地面会感应出第一朵向日葵，发出翠绿嫩芽并伴有悠扬音效。
+                  </div>
+                  <div className={`p-2 rounded transition-colors ${trackedHands.length === 1 && sceneState === 'wasteland' ? 'bg-teal-950/30 border border-teal-500/20' : ''}`}>
+                    <span className="text-teal-400 font-bold font-mono">3. 共生繁茂：</span>
+                    同时张开{" "}<span className="text-stone-100 font-semibold px-1 rounded bg-stone-800">2只手</span>，
+                    即可促成互补，激发第2朵金色向日葵在废墟的右侧缓缓抽丝成长。
+                  </div>
+                  <div className={`p-2 rounded transition-colors ${trackedHands.length === 2 && sceneState === 'wasteland' ? 'bg-yellow-950/30 border border-yellow-500/20 animate-pulse' : ''}`}>
+                    <span className="text-yellow-400 font-bold font-mono">4. 惊蛰新生：</span>
+                    让两只双手在镜头前{" "}<span className="text-yellow-400 font-semibold px-1 rounded bg-stone-800">指尖相触 (两手食指或中指指尖贴近)</span>。
+                    感应后将触发特写，大地震颤，金色极光爆发，世界重建为阳光生态绿城。
+                  </div>
                 </div>
-                <div className={`p-2 rounded transition-colors ${trackedHands.length === 2 && sceneState === 'wasteland' ? 'bg-yellow-950/30 border border-yellow-500/20 animate-pulse' : ''}`}>
-                  <span className="text-yellow-400 font-bold font-mono">3. 惊蛰新生：</span>
-                  让两只双手在镜头前{" "}<span className="text-yellow-400 font-semibold px-1 rounded bg-stone-800">指尖相触 (两手食指或中指指尖贴近)</span>。
-                  感应后将触发特写，大地震颤，金色极光爆发，世界重建为阳光生态绿城。
-                </div>
-              </div>
+              )}
 
               {sceneState === 'modern_city' && (
                 <div className="mt-4 p-2.5 bg-green-950/30 border border-green-500/20 rounded text-center text-xs text-green-300 animate-pulse">
@@ -678,7 +1331,7 @@ export default function App() {
         )}
 
         {/* SYSTEM STATUS DIAGNOSTICS DECK - Cyber-display showing tracking coords overlay */}
-        {sceneState === 'wasteland' && (
+        {(sceneState === 'collecting_seeds' || sceneState === 'wasteland') && (
           <div className="absolute top-44 left-6 z-30 pointer-events-none">
             <div className="bg-black/60 backdrop-blur-sm border border-stone-800/40 px-3 py-2 rounded-lg text-[10px] font-mono text-stone-400 flex flex-col gap-1">
               <div className="flex justify-between gap-10">
@@ -688,8 +1341,8 @@ export default function App() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>渲染向日葵:</span>
-                <span className="text-yellow-400 font-sans">{sunflowers.length} 朵</span>
+                <span>收集种子:</span>
+                <span className="text-amber-400 font-sans">{seedsCollected} / 10</span>
               </div>
               {trackedHands.length > 0 && (
                 <div className="border-t border-stone-800/70 pt-1 mt-1 text-[9px] text-[#78716c] flex flex-col gap-0.5">
@@ -739,12 +1392,24 @@ export default function App() {
         </div>
 
         {/* BOTTOM-CENTER INTERACTION STATUS TICKER */}
+        {sceneState === 'collecting_seeds' && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none hidden md:block">
+            <div className="bg-stone-950/80 backdrop-blur-md px-6 py-2.5 rounded-full border border-stone-800 shadow-xl flex items-center gap-3">
+              <Sparkles className="w-4 h-4 text-purple-400 animate-spin animate-pulse" style={{ animationDuration: '3s' }} />
+              <div className="text-xs text-stone-300 font-mono tracking-wider">
+                {trackedHands.length === 0 && "⌛ 等待访客挥动人手，开启末日环境感应器..."}
+                {trackedHands.length > 0 && `✨ 同步成功：请移动手部圆点去触摸发光的“希望种子” (${seedsCollected}/10)`}
+              </div>
+            </div>
+          </div>
+        )}
+
         {sceneState === 'wasteland' && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none hidden md:block">
             <div className="bg-stone-950/80 backdrop-blur-md px-6 py-2.5 rounded-full border border-stone-800 shadow-xl flex items-center gap-3">
               <Sparkles className="w-4 h-4 text-yellow-400 animate-spin" style={{ animationDuration: '4s' }} />
               <div className="text-xs text-stone-300 font-mono tracking-wider">
-                {trackedHands.length === 0 && "⌛ 等待访客入场并向镜头展示手掌..."}
+                {trackedHands.length === 0 && "⌛ 能量充盈完毕！等待访客举起单掌，触发阳光向日葵生长..."}
                 {trackedHands.length === 1 && "🌱 发现生命信号：首支向日葵已破土而出！展露第二只手..."}
                 {trackedHands.length === 2 && "👉 完美信号谐振：请让双手指尖相互触碰，唤起金色阳光风暴..."}
               </div>

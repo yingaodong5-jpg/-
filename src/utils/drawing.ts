@@ -69,8 +69,212 @@ export function drawWasteland(ctx: CanvasRenderingContext2D, width: number, heig
   ctx.fillRect(0, 0, width, height);
 }
 
+// Procedure to draw the grey, heavy metal particle collecting scene background (Dystopian Greenhouse vibe)
+export function drawGreyBackground(ctx: CanvasRenderingContext2D, width: number, height: number, time: number, bgImage?: HTMLImageElement | null) {
+  // A dark industrial metallic slate gradient
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+  bgGrad.addColorStop(0, '#2e2e35');   // Matte dark steel
+  bgGrad.addColorStop(0.55, '#19191e'); // Deeper grey
+  bgGrad.addColorStop(1, '#0c0c0e');    // Floor black-grey
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, width, height);
+
+  if (bgImage) {
+    ctx.save();
+    ctx.globalAlpha = 0.55; // 50%-60% opacity as requested by user
+
+    // Maintain object-fit: cover aspect ratio scaling on the canvas
+    const imgRatio = bgImage.width / bgImage.height;
+    const canvasRatio = width / height;
+    let sWidth, sHeight, sx, sy;
+
+    if (canvasRatio > imgRatio) {
+      sWidth = bgImage.width;
+      sHeight = bgImage.width / canvasRatio;
+      sx = 0;
+      sy = (bgImage.height - sHeight) / 2;
+    } else {
+      sWidth = bgImage.height * canvasRatio;
+      sHeight = bgImage.height;
+      sx = (bgImage.width - sWidth) / 2;
+      sy = 0;
+    }
+
+    ctx.drawImage(bgImage, sx, sy, sWidth, sHeight, 0, 0, width, height);
+    ctx.restore();
+  }
+
+  // Subtly render thin industrial wireframes, steel pillars and structural lines in grey
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
+  ctx.lineWidth = 1;
+  
+  // Grid lines
+  for (let y = 0; y < height; y += 16) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+
+  // Draw two subtle towering structural support truss lines (Left and Right background)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.012)';
+  ctx.lineWidth = 10;
+  
+  // Left Pillar truss
+  ctx.beginPath();
+  ctx.moveTo(width * 0.18, 0);
+  ctx.lineTo(width * 0.18, height);
+  ctx.stroke();
+  
+  // Right Pillar truss
+  ctx.beginPath();
+  ctx.moveTo(width * 0.82, 0);
+  ctx.lineTo(width * 0.82, height);
+  ctx.stroke();
+
+  // Subtle cross trusses forming X braces
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(width * 0.18, height * 0.1);
+  ctx.lineTo(width * 0.82, height * 0.6);
+  ctx.moveTo(width * 0.82, height * 0.1);
+  ctx.lineTo(width * 0.18, height * 0.6);
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Cinematic heavy vignette
+  const vignette = ctx.createRadialGradient(
+    width / 2, 
+    height / 2, 
+    width * 0.22, 
+    width / 2, 
+    height / 2, 
+    width * 0.75
+  );
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(0.65, 'rgba(0, 0, 0, 0.45)');
+  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.82)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, width, height);
+}
+
+// Helper to draw beautiful glowing, floating lens halos/orbs in the sky area
+export function drawSkyHalos(ctx: CanvasRenderingContext2D, width: number, height: number, time: number, focusX: number, focusY: number) {
+  ctx.save();
+  // Screen blend mode makes light particles look extremely luminous and naturally integrated
+  ctx.globalCompositeOperation = 'screen';
+
+  // 1. A very subtle, small warm core glow for the golden sun (much smaller, non-intrusive)
+  const pulseFactor = Math.sin(time * 0.0015);
+  const coreRadius = 45 + pulseFactor * 4;
+  
+  const coreGlow = ctx.createRadialGradient(focusX, focusY, 0, focusX, focusY, coreRadius);
+  coreGlow.addColorStop(0, 'rgba(255, 245, 215, 0.45)');
+  coreGlow.addColorStop(0.3, 'rgba(255, 210, 130, 0.20)');
+  coreGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.fillStyle = coreGlow;
+  ctx.beginPath();
+  ctx.arc(focusX, focusY, coreRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Beautiful tiny floating prayer particles (starlight wish-orbs)
+  // We generate ~28 deterministic particles that drift upwards and sway gently
+  const particleCount = 28;
+  for (let i = 0; i < particleCount; i++) {
+    // Generate distinct seeds for each particle
+    const seedX = (i * 0.137) % 1.0;
+    const seedY = (i * 0.723) % 1.0;
+    const seedSpeed = 0.03 + (i * 0.013 % 0.025);
+    const seedSway = 15 + (i * 11 % 20);
+    const size = 2.0 + (i * 1.5 % 4.5); // Small and delicate: 2px to 6.5px
+
+    // Drifting motion upwards
+    // Vertical drift: continuous upwards movement wrapper
+    const driftYOffset = (time * seedSpeed) % (height * 0.8);
+    let py = (height * 0.75) - driftYOffset - (seedY * height * 0.35);
+    if (py < -50) py += (height * 0.8); // Wrap safely
+
+    // Sinuous left-right sway
+    const rawPx = seedX * width;
+    const px = rawPx + Math.sin(time * 0.0016 + i) * seedSway;
+
+    // Glowing flicker/breath index
+    const opacityPulse = 0.22 + 0.35 * Math.sin(time * 0.0022 + i * 1.5);
+    
+    // Distribute a gentle, hopeful palette: Warm Golden Champagne, Soft Rose-Peach, Spiritual Mint/Cyan
+    let r = 255, g = 255, b = 255;
+    if (i % 3 === 0) {
+      r = 255; g = 235; b = 160; // Golden champagne
+    } else if (i % 3 === 1) {
+      r = 255; g = 195; b = 205; // Rose-peach
+    } else {
+      r = 175; g = 245; b = 230; // Spiritual pastel mint
+    }
+
+    // Clamp opacity to [0, 1] to prevent DOMException errors
+    const alpha1 = Math.max(0, Math.min(1, opacityPulse));
+    const alpha2 = Math.max(0, Math.min(1, opacityPulse * 0.6));
+    const coreAlpha = Math.max(0, Math.min(1, opacityPulse * 1.1));
+
+    const colorString1 = `rgba(${r}, ${g}, ${b}, ${alpha1.toFixed(3)})`;
+    const colorString2 = `rgba(${r}, ${g}, ${b}, ${alpha2.toFixed(3)})`;
+
+    // Outer radial glow for each tiny particle to make it dreamily blurred
+    const particleGlow = ctx.createRadialGradient(px, py, 0, px, py, size * 2.8);
+    particleGlow.addColorStop(0, colorString1);
+    particleGlow.addColorStop(0.3, colorString2);
+    particleGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    ctx.fillStyle = particleGlow;
+    ctx.beginPath();
+    ctx.arc(px, py, size * 2.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Solid inner core for a sharp glint/sparkle
+    ctx.fillStyle = `rgba(255, 255, 255, ${coreAlpha.toFixed(3)})`;
+    ctx.beginPath();
+    ctx.arc(px, py, size * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 // Procedure to draw the modern glass-and-sunshine city (paradise)
-export function drawModernCity(ctx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+export function drawModernCity(ctx: CanvasRenderingContext2D, width: number, height: number, time: number, bgImage?: HTMLImageElement | null) {
+  if (bgImage) {
+    ctx.save();
+    ctx.globalAlpha = 1.0; // 100% opacity as requested by user (no opacity adjustments)
+
+    // Maintain object-fit: cover aspect ratio scaling on the canvas
+    const imgRatio = bgImage.width / bgImage.height;
+    const canvasRatio = width / height;
+    let sWidth, sHeight, sx, sy;
+
+    if (canvasRatio > imgRatio) {
+      sWidth = bgImage.width;
+      sHeight = bgImage.width / canvasRatio;
+      sx = 0;
+      sy = (bgImage.height - sHeight) / 2;
+    } else {
+      sWidth = bgImage.height * canvasRatio;
+      sHeight = bgImage.height;
+      sx = (bgImage.width - sWidth) / 2;
+      sy = 0;
+    }
+
+    ctx.drawImage(bgImage, sx, sy, sWidth, sHeight, 0, 0, width, height);
+
+    // Draw beautiful glowing, breathing sky halos/lens lights in the upper sky region (where sunbeams pour out)
+    drawSkyHalos(ctx, width, height, time, width * 0.5, height * 0.28);
+
+    ctx.restore();
+    return;
+  }
+
   // 1. Sky: Vibrant sky blue with warm gold setting sun/glorious sun center
   const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
   skyGrad.addColorStop(0, '#5fa7e8');   // Energetic sky blue
@@ -181,20 +385,9 @@ export function drawModernCity(ctx: CanvasRenderingContext2D, width: number, hei
   ctx.restore();
 
   // Sun flare effect in top center-right
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
   const sunX = width * 0.8;
   const sunY = height * 0.18;
-  const sunGlow = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 250);
-  sunGlow.addColorStop(0, 'rgba(255, 235, 180, 0.4)');
-  sunGlow.addColorStop(0.2, 'rgba(255, 210, 120, 0.18)');
-  sunGlow.addColorStop(0.6, 'rgba(255, 180, 100, 0.05)');
-  sunGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = sunGlow;
-  ctx.beginPath();
-  ctx.arc(sunX, sunY, 250, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  drawSkyHalos(ctx, width, height, time, sunX, sunY);
 }
 
 function drawParkTree(ctx: CanvasRenderingContext2D, x: number, y: number, height: number) {

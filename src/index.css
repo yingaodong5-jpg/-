@@ -34,3 +34,47 @@
 .animate-float {
   animation: float-gentle 6s ease-in-out infinite;
 }
+
+@keyframes poetic-fade {
+  0% { opacity: 0; transform: translateY(3px); filter: blur(2px); }
+  12% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  88% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-3px); filter: blur(2px); }
+}
+
+.animate-poetry {
+  animation: poetic-fade 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes poetic-fade-slow {
+  0% { opacity: 0; transform: translateY(4px); filter: blur(4px); }
+  15% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  85% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-4px); filter: blur(4px); }
+}
+
+.animate-poetry-slow {
+  animation: poetic-fade-slow 2.8s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+@keyframes drift-particle {
+  0% {
+    transform: translateY(110vh) translateX(0) scale(1);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  85% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-10vh) translateX(var(--drift-x, 40px)) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.animate-spark {
+  animation: drift-particle var(--drift-duration, 12s) ease-in-out infinite;
+}
+

@@ -3,7 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type SceneState = 'wasteland' | 'transition' | 'modern_city';
+export type SceneState = 'collecting_seeds' | 'wasteland' | 'transition' | 'modern_city';
+
+export interface HopeSeed {
+  x: number; // Relative position on canvas 0..1
+  y: number; // Relative position on canvas 0..1
+  size: number;
+  pulsePhase: number;
+  color: string;
+}
 
 export interface Sunflower {
   id: string;
@@ -40,4 +48,7 @@ export interface Particle {
   color: string;
   life: number;
   maxLife: number;
+  isMetallic?: boolean;
+  angle?: number;
+  spinSpeed?: number;
 }

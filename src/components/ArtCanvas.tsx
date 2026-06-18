@@ -4,38 +4,86 @@
  */
 
 import { useEffect, useRef, useState, Dispatch, SetStateAction } from 'react';
-import { SceneState, Sunflower, TrackedHand, Particle } from '../types';
-import { drawWasteland, drawModernCity, drawSunflower, drawHandTracker } from '../utils/drawing';
+import { SceneState, Sunflower, TrackedHand, Particle, HopeSeed } from '../types';
+import { drawWasteland, drawModernCity, drawSunflower, drawHandTracker, drawGreyBackground } from '../utils/drawing';
 
 interface ArtCanvasProps {
   trackedHands: TrackedHand[];
   sceneState: SceneState;
   onSceneStateChange: (state: SceneState) => void;
+  seedsCollected: number;
+  setSeedsCollected: Dispatch<SetStateAction<number>>;
   sunflowers: Sunflower[];
   setSunflowers: Dispatch<SetStateAction<Sunflower[]>>;
   onHandshakeTriggered: () => void;
+  onSeedCollected: () => void;
   loadedBgImage: HTMLImageElement | null;
+  loadedCollectingSeedsBgImage?: HTMLImageElement | null;
+  loadedModernCityBgImage?: HTMLImageElement | null;
   loadedSunflowerImage: HTMLCanvasElement | null;
+  triggerWastelandTransition: boolean;
 }
 
 export default function ArtCanvas({
   trackedHands,
   sceneState,
   onSceneStateChange,
+  seedsCollected,
+  setSeedsCollected,
   sunflowers,
   setSunflowers,
   onHandshakeTriggered,
+  onSeedCollected,
   loadedBgImage,
+  loadedCollectingSeedsBgImage,
+  loadedModernCityBgImage,
   loadedSunflowerImage,
+  triggerWastelandTransition,
 }: ArtCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Canvas context and animation states
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [activeSeed, setActiveSeed] = useState<HopeSeed | null>(null);
+
+  const spawnRandomSeed = () => {
+    return {
+      x: 0.2 + Math.random() * 0.6, // Keep within center 60% of screen width for easy camera reach
+      y: 0.2 + Math.random() * 0.4, // Keep within center 40% of screen height for natural arm range
+      size: 14,
+      pulsePhase: Math.random() * Math.PI * 2,
+      color: ['#ffd700', '#f59e0b', '#facc15', '#fde047'][Math.floor(Math.random() * 4)],
+    };
+  };
+
+  useEffect(() => {
+    if (sceneState === 'collecting_seeds' && seedsCollected < 10) {
+      if (!activeSeed) {
+        setActiveSeed(spawnRandomSeed());
+      }
+    } else {
+      setActiveSeed(null);
+    }
+  }, [sceneState, activeSeed, seedsCollected]);
   const particlesRef = useRef<Particle[]>([]);
   const handshakeFrameCounterRef = useRef<number>(0);
   const transitionProgressRef = useRef<number>(0); // 0 (start) to 1 (complete)
+  const transitionEndedRef = useRef<boolean>(false);
+  
+  // Transition between seed stage and wasteland stage
+  const seedTransitionActiveRef = useRef<boolean>(false);
+  const seedTransitionProgressRef = useRef<number>(0);
+
+  // Listener to trigger smooth cross-dissolve when interlude cover action is pressed
+  useEffect(() => {
+    if (triggerWastelandTransition && !seedTransitionActiveRef.current) {
+      seedTransitionActiveRef.current = true;
+      seedTransitionProgressRef.current = 0.01; // Begin!
+      onHandshakeTriggered(); // plays satisfying high celestial bells
+      spawnTransitionExplosionParticles(dimensions.width, dimensions.height);
+    }
+  }, [triggerWastelandTransition, dimensions.width, dimensions.height]);
 
   // 1. Dynamic Window sizing Observer (ResizeObserver ensures no static innerWidth calculations)
   useEffect(() => {
@@ -71,18 +119,50 @@ export default function ArtCanvas({
   // Utility to create ambient floaties
   const spawnAmbientParticle = (w: number, h: number, state: SceneState): Particle => {
     const isWasteland = state === 'wasteland';
+    const isSeeds = state === 'collecting_seeds';
+    
+    let vx = (Math.random() - 0.5) * 0.8;
+    let vy = isWasteland ? -(0.2 + Math.random() * 0.5) : -(0.4 + Math.random() * 0.8);
+    let size = Math.random() * (isWasteland ? 3 : 4) + 1;
+    let alpha = Math.random() * 0.6 + 0.15;
+    let color = '';
+    let maxLife = 200 + Math.random() * 300;
+    
+    let isMetallic = false;
+    let angle = 0;
+    let spinSpeed = 0;
+
+    if (isSeeds) {
+      // Heavy metal floating particles: cool steel, iron, silver and carbon shades
+      const colors = ['#8e8e93', '#7c7c82', '#aeaea3', '#d1d1d6', '#48484a', '#a1a1aa'];
+      color = colors[Math.floor(Math.random() * colors.length)];
+      vx = (Math.random() - 0.5) * 0.6;
+      vy = -(0.15 + Math.random() * 0.4); // Slow heavy suspension
+      size = Math.random() * 5.5 + 2.5; // Bigger metallic chunks
+      alpha = Math.random() * 0.5 + 0.25;
+      isMetallic = true;
+      angle = Math.random() * Math.PI * 2;
+      spinSpeed = (Math.random() - 0.5) * 0.05;
+      maxLife = 280 + Math.random() * 350;
+    } else if (isWasteland) {
+      color = ['#5c4a45', '#3c3a44', '#7c685b'][Math.floor(Math.random() * 3)];
+    } else {
+      color = ['#ffe066', '#ffd633', '#e6eeff', '#66cc8a'][Math.floor(Math.random() * 4)];
+    }
+
     return {
       x: Math.random() * w,
       y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.8,
-      vy: isWasteland ? -(0.2 + Math.random() * 0.5) : -(0.4 + Math.random() * 0.8), // Floating upwards
-      size: Math.random() * (isWasteland ? 3 : 4) + 1,
-      alpha: Math.random() * 0.6 + 0.1,
-      color: isWasteland 
-        ? ['#5c4a45', '#3c3a44', '#7c685b'][Math.floor(Math.random() * 3)] // Greyscale / rust particles
-        : ['#ffe066', '#ffd633', '#e6eeff', '#66cc8a'][Math.floor(Math.random() * 4)], // Gold and green flower pollen
+      vx,
+      vy,
+      size,
+      alpha,
+      color,
       life: 0,
-      maxLife: 200 + Math.random() * 300,
+      maxLife,
+      isMetallic,
+      angle,
+      spinSpeed,
     };
   };
 
@@ -111,6 +191,66 @@ export default function ArtCanvas({
   // 2. Continuous Hand Detection and logic processing
   useEffect(() => {
     if (sceneState === 'modern_city') return; // Once transitioned, do no more processing
+
+    // --- HOPE SEEDS COLLECTION COLLISION CHECK ---
+    if (sceneState === 'collecting_seeds' && seedsCollected < 10) {
+      if (!activeSeed || trackedHands.length === 0) return;
+
+      const seedX = activeSeed.x * dimensions.width;
+      const seedY = activeSeed.y * dimensions.height;
+
+      let wasTouched = false;
+      for (const hand of trackedHands) {
+        for (const pt of hand.landmarks) {
+          // Flip horizontally to match canvas graphics
+          const px = (1 - pt.x) * dimensions.width;
+          const py = pt.y * dimensions.height;
+
+          const dist = Math.sqrt(Math.pow(px - seedX, 2) + Math.pow(py - seedY, 2));
+          // If any joint touches the seed (radius 34px is perfect for touch interaction)
+          if (dist < 34) {
+            wasTouched = true;
+            break;
+          }
+        }
+        if (wasTouched) break;
+      }
+
+      if (wasTouched) {
+        // Satisfaction neon particle bursts
+        const burst: Particle[] = [];
+        for (let i = 0; i < 20; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 1.2 + Math.random() * 4.0;
+          burst.push({
+            x: seedX,
+            y: seedY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: Math.random() * 4.5 + 1.5,
+            alpha: 1.0,
+            color: activeSeed.color,
+            life: 0,
+            maxLife: 40 + Math.random() * 25,
+          });
+        }
+        particlesRef.current = [...particlesRef.current, ...burst];
+
+        // Trigger synthesis chime
+        onSeedCollected();
+
+        const newCount = seedsCollected + 1;
+        setSeedsCollected(newCount);
+
+        if (newCount >= 10) {
+          // Complete! Hide the active seed. The poetic interlude cover will show, and transition is triggered via prop button
+          setActiveSeed(null);
+        } else {
+          setActiveSeed(spawnRandomSeed());
+        }
+      }
+      return;
+    }
 
     // Active gesture detection logic
     if (trackedHands.length === 1) {
@@ -231,7 +371,18 @@ export default function ArtCanvas({
       // 0 hands
       handshakeFrameCounterRef.current = 0;
     }
-  }, [trackedHands, dimensions.width, dimensions.height, sceneState]);
+  }, [
+    trackedHands, 
+    dimensions.width, 
+    dimensions.height, 
+    sceneState, 
+    activeSeed, 
+    seedsCollected, 
+    setSeedsCollected, 
+    onSeedCollected, 
+    onSceneStateChange, 
+    onHandshakeTriggered
+  ]);
 
   // Handle automatic progressive growth of transition-bloomed sunflowers
   useEffect(() => {
@@ -273,10 +424,33 @@ export default function ArtCanvas({
       canvas.height = height;
 
       // A) --- BACKGROUND DRAWING STAGE ---
-      if (sceneState === 'wasteland') {
+      if (sceneState === 'collecting_seeds') {
+        if (seedTransitionActiveRef.current) {
+          // Progress from 0 to 1
+          seedTransitionProgressRef.current = Math.min(1.0, seedTransitionProgressRef.current + 0.012); // smooth 1-second transition
+          const p = seedTransitionProgressRef.current;
+          
+          // Draw grey background base
+          drawGreyBackground(ctx, width, height, time, loadedCollectingSeedsBgImage);
+          
+          // Overlap wasteland background with alpha p
+          ctx.save();
+          ctx.globalAlpha = p;
+          drawWasteland(ctx, width, height, time, loadedBgImage);
+          ctx.restore();
+          
+          if (p >= 1.0) {
+            seedTransitionActiveRef.current = false;
+            seedTransitionProgressRef.current = 0;
+            onSceneStateChange('wasteland');
+          }
+        } else {
+          drawGreyBackground(ctx, width, height, time, loadedCollectingSeedsBgImage);
+        }
+      } else if (sceneState === 'wasteland') {
         drawWasteland(ctx, width, height, time, loadedBgImage);
       } else if (sceneState === 'modern_city') {
-        drawModernCity(ctx, width, height, time);
+        drawModernCity(ctx, width, height, time, loadedModernCityBgImage);
       } else if (sceneState === 'transition') {
         // Linear interpolation blend of wastewater and modern city
         // We'll update the progress bar ref
@@ -289,11 +463,12 @@ export default function ArtCanvas({
         // Draw modern city overlaid with gradual transparency alpha
         ctx.save();
         ctx.globalAlpha = p;
-        drawModernCity(ctx, width, height, time);
+        drawModernCity(ctx, width, height, time, loadedModernCityBgImage);
         ctx.restore();
 
         // Check if transition sequence has completed (after 2.5 seconds or 100 frames)
-        if (p >= 1.0) {
+        if (p >= 1.0 && !transitionEndedRef.current) {
+          transitionEndedRef.current = true;
           // Transition complete. Shift state permanently.
           onSceneStateChange('modern_city');
           
@@ -340,19 +515,48 @@ export default function ArtCanvas({
         p.y += p.vy;
 
         // Apply slight turbulence wiggles
-        p.vx += (Math.random() - 0.5) * 0.1;
+        p.vx += (Math.random() - 0.5) * 0.15;
 
         // Render shape
         ctx.save();
         ctx.globalAlpha = p.alpha * (1 - p.life / p.maxLife);
         ctx.fillStyle = p.color;
         
-        ctx.shadowBlur = sceneState === 'wasteland' ? 0 : 5;
+        ctx.shadowBlur = (sceneState === 'wasteland' || sceneState === 'collecting_seeds') ? 0 : 5;
         ctx.shadowColor = p.color;
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
+        if (p.isMetallic) {
+          // Update rotation angle
+          if (p.angle !== undefined && p.spinSpeed !== undefined) {
+            p.angle += p.spinSpeed;
+          }
+          const angle = p.angle || 0;
+          
+          // Draw a shiny metallic diamond shard
+          ctx.translate(p.x, p.y);
+          ctx.rotate(angle);
+          
+          ctx.beginPath();
+          // Diamond or parallelogram shape for metallic shards
+          ctx.moveTo(0, -p.size);
+          ctx.lineTo(p.size * 0.7, 0);
+          ctx.lineTo(0, p.size);
+          ctx.lineTo(-p.size * 0.7, 0);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Draw metallic reflection highlight line
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(-p.size * 0.4, 0);
+          ctx.lineTo(p.size * 0.4, 0);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
         ctx.restore();
 
         return p.life < p.maxLife && p.y > 0 && p.x > 0 && p.x < width;
@@ -402,10 +606,61 @@ export default function ArtCanvas({
       }
 
       // E) --- CYBERNETIC HAND OVERLAYS (Only display tracked pointers in heavy-metal wasteland stage for HUD looks) ---
-      if (sceneState === 'wasteland') {
+      if (sceneState === 'collecting_seeds' || sceneState === 'wasteland') {
         trackedHands.forEach((hand) => {
           drawHandTracker(ctx, hand, width, height, hand.label === 'Left');
         });
+      }
+
+      // F) --- HOPE SEED DRAWING STAGE ---
+      if (sceneState === 'collecting_seeds' && activeSeed && seedsCollected < 10) {
+        const seedX = activeSeed.x * width;
+        const seedY = activeSeed.y * height;
+        const pulse = Math.sin((time / 150) + activeSeed.pulsePhase) * 3;
+        const baseRadius = 8 + pulse;
+
+        ctx.save();
+        // Soft aura background glow
+        const glowGrad = ctx.createRadialGradient(seedX, seedY, 1, seedX, seedY, baseRadius * 3.5);
+        glowGrad.addColorStop(0, 'rgba(251, 191, 36, 0.95)');
+        glowGrad.addColorStop(0.3, 'rgba(245, 158, 11, 0.5)');
+        glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(seedX, seedY, baseRadius * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Teardrop central seedling core
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#facc15';
+
+        ctx.beginPath();
+        ctx.moveTo(seedX, seedY - baseRadius * 1.3);
+        ctx.bezierCurveTo(seedX + baseRadius, seedY - baseRadius * 0.1, seedX + baseRadius, seedY + baseRadius, seedX, seedY + baseRadius);
+        ctx.bezierCurveTo(seedX - baseRadius, seedY + baseRadius, seedX - baseRadius, seedY - baseRadius * 0.1, seedX, seedY - baseRadius * 1.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 3 floating stellar satellites looping around
+        const speedFactor = time * 0.0035;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = '#ffffff';
+        for (let i = 0; i < 3; i++) {
+          const angle = speedFactor + (i * (Math.PI * 2 / 3));
+          const orbitX = seedX + Math.cos(angle) * (baseRadius * 1.8);
+          const orbitY = seedY + Math.sin(angle) * (baseRadius * 1.8);
+          ctx.beginPath();
+          ctx.arc(orbitX, orbitY, 2.5 + Math.sin(time * 0.008 + i) * 0.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
       }
 
       animationId = requestAnimationFrame(render);
@@ -416,12 +671,17 @@ export default function ArtCanvas({
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [dimensions, sceneState, sunflowers, trackedHands]);
+  }, [dimensions, sceneState, sunflowers, trackedHands, activeSeed]);
 
-  // Make sure we reset transition progress counters when state goes back to wasteland
+  // Make sure we reset transition progress counters on resets
   useEffect(() => {
-    if (sceneState === 'wasteland') {
+    if (sceneState === 'collecting_seeds') {
+      seedTransitionActiveRef.current = false;
+      seedTransitionProgressRef.current = 0;
+      transitionEndedRef.current = false;
+    } else if (sceneState === 'wasteland') {
       transitionProgressRef.current = 0;
+      transitionEndedRef.current = false;
     }
   }, [sceneState]);
 
