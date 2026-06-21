@@ -723,7 +723,6 @@ export default function App() {
     };
 
     const img = new Image();
-    img.src = wastelandBgImg;
     img.onload = () => {
       setLoadedBgImage(img);
       bgReady = true;
@@ -732,8 +731,6 @@ export default function App() {
     img.onerror = () => {
       console.warn('Failed preloading local background. Trying high-quality CDN fallback...');
       const fallback = new Image();
-      fallback.crossOrigin = 'anonymous'; // support cross-origin manipulations
-      fallback.src = 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1600&auto=format&fit=crop';
       fallback.onload = () => {
         setLoadedBgImage(fallback);
         bgReady = true;
@@ -743,10 +740,12 @@ export default function App() {
         bgReady = true; // prevent blocking forever
         checkAllLoaded();
       };
+      fallback.crossOrigin = 'anonymous'; // support cross-origin manipulations
+      fallback.src = 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1600&auto=format&fit=crop';
     };
+    img.src = wastelandBgImg;
 
     const clImg = new Image();
-    clImg.src = collectingSeedsBgImg;
     clImg.onload = () => {
       setLoadedCollectingSeedsBgImage(clImg);
       clBgReady = true;
@@ -755,8 +754,6 @@ export default function App() {
     clImg.onerror = () => {
       console.warn('Failed preloading local seed collecting background. Trying high-quality CDN fallback...');
       const fallback = new Image();
-      fallback.crossOrigin = 'anonymous';
-      fallback.src = 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?q=80&w=1600&auto=format&fit=crop';
       fallback.onload = () => {
         setLoadedCollectingSeedsBgImage(fallback);
         clBgReady = true;
@@ -766,10 +763,12 @@ export default function App() {
         clBgReady = true;
         checkAllLoaded();
       };
+      fallback.crossOrigin = 'anonymous';
+      fallback.src = 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?q=80&w=1600&auto=format&fit=crop';
     };
+    clImg.src = collectingSeedsBgImg;
 
     const mcImg = new Image();
-    mcImg.src = modernCityBgImg;
     mcImg.onload = () => {
       setLoadedModernCityBgImage(mcImg);
       mcBgReady = true;
@@ -778,8 +777,6 @@ export default function App() {
     mcImg.onerror = () => {
       console.warn('Failed preloading local modern city background. Trying high-quality CDN fallback...');
       const fallback = new Image();
-      fallback.crossOrigin = 'anonymous';
-      fallback.src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1600&auto=format&fit=crop';
       fallback.onload = () => {
         setLoadedModernCityBgImage(fallback);
         mcBgReady = true;
@@ -789,10 +786,12 @@ export default function App() {
         mcBgReady = true;
         checkAllLoaded();
       };
+      fallback.crossOrigin = 'anonymous';
+      fallback.src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1600&auto=format&fit=crop';
     };
+    mcImg.src = modernCityBgImg;
 
     const sfImg = new Image();
-    sfImg.src = sunflowerImgAsset;
     sfImg.onload = () => {
       const processed = makeWhiteTransparent(sfImg);
       setLoadedSunflowerImage(processed);
@@ -802,8 +801,6 @@ export default function App() {
     sfImg.onerror = () => {
       console.warn('Failed preloading local sunflower asset. Trying high-quality CDN fallback...');
       const fallback = new Image();
-      fallback.crossOrigin = 'anonymous';
-      fallback.src = 'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=800&auto=format&fit=crop';
       fallback.onload = () => {
         const processed = makeWhiteTransparent(fallback);
         setLoadedSunflowerImage(processed);
@@ -814,7 +811,10 @@ export default function App() {
         sfReady = true; // prevent blocking forever on error
         checkAllLoaded();
       };
+      fallback.crossOrigin = 'anonymous';
+      fallback.src = 'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=800&auto=format&fit=crop';
     };
+    sfImg.src = sunflowerImgAsset;
   }, []);
 
   // UI Panels states
