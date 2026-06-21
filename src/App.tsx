@@ -186,6 +186,9 @@ class SoundSynth {
   // Look-ahead synthesizer scheduler supporting zero timing sync drifts or lags
   scheduleMelody() {
     if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
     
     try {
       // Handle page pauses/backgrounding neatly by skipping elapsed time frames
@@ -320,7 +323,10 @@ class SoundSynth {
   }
 
   playSproutSound() {
-    if (!this.ctx || !this.isEnabled || this.ctx.state === 'suspended') return;
+    if (!this.ctx || !this.isEnabled) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
     const t = this.ctx.currentTime;
     try {
       // Cozy rising magical sprout sound matching Left Hand Right Hand major pentatonic (C Major chord)
@@ -343,7 +349,10 @@ class SoundSynth {
   }
 
   playHandshakeSound() {
-    if (!this.ctx || !this.isEnabled || this.ctx.state === 'suspended') return;
+    if (!this.ctx || !this.isEnabled) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
     const t = this.ctx.currentTime;
     try {
       // 1. Blinding white noise filter boom representing reconstruction
@@ -392,7 +401,10 @@ class SoundSynth {
   }
 
   playSeedPickupSound() {
-    if (!this.ctx || !this.isEnabled || this.ctx.state === 'suspended') return;
+    if (!this.ctx || !this.isEnabled) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
     const t = this.ctx.currentTime;
     try {
       // Bright, satisfying rising acoustic arpeggio (C5 -> E5 -> G5 -> C6)
@@ -718,9 +730,19 @@ export default function App() {
       checkAllLoaded();
     };
     img.onerror = () => {
-      console.error('Failed preloading background.');
-      bgReady = true; // prevent blocking forever on error
-      checkAllLoaded();
+      console.warn('Failed preloading local background. Trying high-quality CDN fallback...');
+      const fallback = new Image();
+      fallback.crossOrigin = 'anonymous'; // support cross-origin manipulations
+      fallback.src = 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1600&auto=format&fit=crop';
+      fallback.onload = () => {
+        setLoadedBgImage(fallback);
+        bgReady = true;
+        checkAllLoaded();
+      };
+      fallback.onerror = () => {
+        bgReady = true; // prevent blocking forever
+        checkAllLoaded();
+      };
     };
 
     const clImg = new Image();
@@ -731,9 +753,19 @@ export default function App() {
       checkAllLoaded();
     };
     clImg.onerror = () => {
-      console.error('Failed preloading collecting seeds background.');
-      clBgReady = true;
-      checkAllLoaded();
+      console.warn('Failed preloading local seed collecting background. Trying high-quality CDN fallback...');
+      const fallback = new Image();
+      fallback.crossOrigin = 'anonymous';
+      fallback.src = 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?q=80&w=1600&auto=format&fit=crop';
+      fallback.onload = () => {
+        setLoadedCollectingSeedsBgImage(fallback);
+        clBgReady = true;
+        checkAllLoaded();
+      };
+      fallback.onerror = () => {
+        clBgReady = true;
+        checkAllLoaded();
+      };
     };
 
     const mcImg = new Image();
@@ -744,9 +776,19 @@ export default function App() {
       checkAllLoaded();
     };
     mcImg.onerror = () => {
-      console.error('Failed preloading modern city background.');
-      mcBgReady = true;
-      checkAllLoaded();
+      console.warn('Failed preloading local modern city background. Trying high-quality CDN fallback...');
+      const fallback = new Image();
+      fallback.crossOrigin = 'anonymous';
+      fallback.src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1600&auto=format&fit=crop';
+      fallback.onload = () => {
+        setLoadedModernCityBgImage(fallback);
+        mcBgReady = true;
+        checkAllLoaded();
+      };
+      fallback.onerror = () => {
+        mcBgReady = true;
+        checkAllLoaded();
+      };
     };
 
     const sfImg = new Image();
@@ -758,9 +800,20 @@ export default function App() {
       checkAllLoaded();
     };
     sfImg.onerror = () => {
-      console.error('Failed preloading sunflower.');
-      sfReady = true; // prevent blocking forever on error
-      checkAllLoaded();
+      console.warn('Failed preloading local sunflower asset. Trying high-quality CDN fallback...');
+      const fallback = new Image();
+      fallback.crossOrigin = 'anonymous';
+      fallback.src = 'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=800&auto=format&fit=crop';
+      fallback.onload = () => {
+        const processed = makeWhiteTransparent(fallback);
+        setLoadedSunflowerImage(processed);
+        sfReady = true;
+        checkAllLoaded();
+      };
+      fallback.onerror = () => {
+        sfReady = true; // prevent blocking forever on error
+        checkAllLoaded();
+      };
     };
   }, []);
 
