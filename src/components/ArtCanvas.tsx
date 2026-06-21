@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState, Dispatch, SetStateAction, useMemo, PointerEvent } from 'react';
 import { SceneState, Sunflower, TrackedHand, Particle, HopeSeed } from '../types';
-import { drawWasteland, drawModernCity, drawSunflower, drawHandTracker, drawGreyBackground } from '../utils/drawing';
+import { drawWasteland, drawModernCity, drawSunflower, drawHandTracker, drawGreyBackground, drawPrayerHalos } from '../utils/drawing';
 
 interface ArtCanvasProps {
   trackedHands: TrackedHand[];
@@ -754,6 +754,15 @@ export default function ArtCanvas({
         ctx.restore();
       }
 
+      // D) --- FOREGROUND PRAYER HALOS (foreground layering over sunflowers/particles) ---
+      if (sceneState === 'modern_city' || sceneState === 'transition') {
+        const transAlpha = sceneState === 'transition' ? transitionProgressRef.current : 1.0;
+        ctx.save();
+        ctx.globalAlpha = transAlpha;
+        drawPrayerHalos(ctx, width, height, time);
+        ctx.restore();
+      }
+
       animationId = requestAnimationFrame(render);
     };
 
@@ -762,7 +771,7 @@ export default function ArtCanvas({
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [dimensions, sceneState, sunflowers, effectiveHands, activeSeed]);
+  }, [dimensions, sceneState, sunflowers, effectiveHands, activeSeed, loadedBgImage, loadedCollectingSeedsBgImage, loadedModernCityBgImage, loadedSunflowerImage]);
 
   // Make sure we reset transition progress counters on resets
   useEffect(() => {

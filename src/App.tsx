@@ -39,7 +39,7 @@ import modernCityBgImg from './assets/images/wasteland_sunrays_bg_1781744924704.
 // @ts-ignore
 import collectingSeedsBgImg from './assets/images/collecting_seeds_bg_1781744195771.jpg';
 // @ts-ignore
-import sunflowerImgAsset from './assets/images/sunflower_asset_1781143850977.png';
+import sunflowerImgAsset from './assets/images/sunflower_asset_1782040614935.jpg';
 
 // Process loaded sunflower image to make its white background perfectly transparent
 function makeWhiteTransparent(img: HTMLImageElement): HTMLCanvasElement {

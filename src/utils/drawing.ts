@@ -243,6 +243,110 @@ export function drawSkyHalos(ctx: CanvasRenderingContext2D, width: number, heigh
   ctx.restore();
 }
 
+// Helper to draw beautiful floating prayer halo rings (祈愿与向往之光圈) representing people's prayers and future wishes
+export function drawPrayerHalos(ctx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  // We generate ~20 distinct prayer halos representing hopes of a better future.
+  // They gently drift upwards and sway from side to side.
+  const haloCount = 20;
+  for (let i = 0; i < haloCount; i++) {
+    // Generate deterministic coordinates and properties
+    const seedX = (i * 0.173 + 0.1) % 1.0;
+    const seedY = (i * 0.583 + 0.2) % 1.0;
+    const speed = 0.02 + (i * 0.009 % 0.018); // slow upward drift
+    const swayRange = 25 + (i * 7 % 30);
+    const swaySpeed = 0.001 + (i * 0.0003 % 0.001);
+    const baseRadius = 8 + (i * 3 % 14); // ring radius: 8px to 22px
+
+    // Drifting position
+    const totalDriftY = (time * speed) % (height * 0.95);
+    // Start low, drift up, wrap around
+    let py = (height * 0.9) - totalDriftY - (seedY * height * 0.45);
+    if (py < -30) py += (height * 0.95);
+
+    const px = (seedX * width) + Math.sin(time * swaySpeed + i * 2) * swayRange;
+
+    // Fade out near the extreme top/bottom
+    let borderAlpha = 1.0;
+    if (py < height * 0.15) {
+      borderAlpha = py / (height * 0.15); // Fade to 0 at top
+    } else if (py > height * 0.85) {
+      borderAlpha = (height - py) / (height * 0.15); // Fade to 0 at bottom
+    }
+    borderAlpha = Math.max(0, Math.min(1, borderAlpha));
+
+    // Breathing rhythm: scale of outer ring and glow intensity
+    const breathe = Math.sin(time * 0.0018 + i * 1.7);
+    const ringScale = 1.0 + breathe * 0.22; // expands/contracts elegantly
+    const currentRadius = baseRadius * ringScale;
+    
+    // Choose beautiful holy spiritual glow colors: golden champagne, pristine warm sun, sacred blueish-green
+    let r = 255, g = 255, b = 255;
+    if (i % 3 === 0) {
+      r = 255; g = 215; b = 120; // Champagne Gold
+    } else if (i % 3 === 1) {
+      r = 252; g = 171; b = 101; // Warm spiritual orange/sunland glow
+    } else {
+      r = 130; g = 245; b = 205; // Heavenly soft mint/turquoise
+    }
+
+    const ringOpacity = (0.28 + 0.22 * breathe) * borderAlpha;
+    const coreOpacity = (0.65 + 0.3 * breathe) * borderAlpha;
+
+    // 1. Draw solid tiny sparkling core (the prayer seed)
+    ctx.fillStyle = `rgba(255, 255, 255, ${coreOpacity.toFixed(3)})`;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Draw outer delicate glowing halo ring / aperture boundary (光圈)
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${ringOpacity.toFixed(3)})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(px, py, currentRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 3. Draw a secondary, larger concentric ultra-thin ring (the wave of hope ripple)
+    if (i % 2 === 0) {
+      const secondRingRadius = currentRadius * 1.45;
+      const secondOpacity = ringOpacity * 0.45;
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${secondOpacity.toFixed(3)})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(px, py, secondRingRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 4. Draw mini-cross starlight flare inside the center (compassion sparkles)
+    if (i % 4 === 0) {
+      ctx.strokeStyle = `rgba(255, 255, 255, ${(coreOpacity * 0.5).toFixed(3)})`;
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      // Horizontal flare
+      ctx.moveTo(px - currentRadius * 0.35, py);
+      ctx.lineTo(px + currentRadius * 0.35, py);
+      // Vertical flare
+      ctx.moveTo(px, py - currentRadius * 0.35);
+      ctx.lineTo(px, py + currentRadius * 0.35);
+      ctx.stroke();
+    }
+
+    // 5. Draw very soft radial glow fill inside the halo ring to give it body and volume (bokeh effect)
+    const haloGlow = ctx.createRadialGradient(px, py, 0, px, py, currentRadius * 1.2);
+    haloGlow.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${(ringOpacity * 0.15).toFixed(3)})`);
+    haloGlow.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, ${(ringOpacity * 0.05).toFixed(3)})`);
+    haloGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = haloGlow;
+    ctx.beginPath();
+    ctx.arc(px, py, currentRadius * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 // Procedure to draw the modern glass-and-sunshine city (paradise)
 export function drawModernCity(ctx: CanvasRenderingContext2D, width: number, height: number, time: number, bgImage?: HTMLImageElement | null) {
   if (bgImage) {
@@ -270,6 +374,9 @@ export function drawModernCity(ctx: CanvasRenderingContext2D, width: number, hei
 
     // Draw beautiful glowing, breathing sky halos/lens lights in the upper sky region (where sunbeams pour out)
     drawSkyHalos(ctx, width, height, time, width * 0.5, height * 0.28);
+
+    // Draw beautiful floating prayer halo rings (祈愿与向往之光圈) representing people's prayers and future wishes
+    drawPrayerHalos(ctx, width, height, time);
 
     ctx.restore();
     return;
@@ -388,6 +495,9 @@ export function drawModernCity(ctx: CanvasRenderingContext2D, width: number, hei
   const sunX = width * 0.8;
   const sunY = height * 0.18;
   drawSkyHalos(ctx, width, height, time, sunX, sunY);
+
+  // Draw beautiful floating prayer halo rings (祈愿与向往之光圈) representing people's prayers and future wishes
+  drawPrayerHalos(ctx, width, height, time);
 }
 
 function drawParkTree(ctx: CanvasRenderingContext2D, x: number, y: number, height: number) {
