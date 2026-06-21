@@ -907,45 +907,45 @@ export default function App() {
           onPointerCancel={handleCoverPointerLeaveOrUp}
         >
           
-          {/* Background Slideshow (crossfade sequentially with 50%-60% opacity) */}
+          {/* Background Slideshow (crossfade sequentially with high opacity for ultimate clarity) */}
           <div className="absolute inset-0 select-none overflow-hidden pointer-events-none z-0">
             <img 
               src={wastelandBgImg1} 
               alt="Nuclear winter scene 1" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 0 ? 0.55 : 0 }}
+              style={{ opacity: coverBgIndex === 0 ? 0.92 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
               src={wastelandBgImg2} 
               alt="Nuclear winter scene 2" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 1 ? 0.55 : 0 }}
+              style={{ opacity: coverBgIndex === 1 ? 0.92 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
               src={wastelandBgImg3} 
               alt="Nuclear winter scene 3" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 2 ? 0.55 : 0 }}
+              style={{ opacity: coverBgIndex === 2 ? 0.92 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
               src={wastelandBgImg4} 
               alt="Nuclear winter scene 4" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 3 ? 0.55 : 0 }}
+              style={{ opacity: coverBgIndex === 3 ? 0.92 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
               src={wastelandBgImg5} 
               alt="Nuclear winter scene 5" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 4 ? 0.55 : 0 }}
+              style={{ opacity: coverBgIndex === 4 ? 0.92 : 0 }}
               referrerPolicy="no-referrer"
             />
-            {/* Ambient vignette background blur & dark tint over the image for readability */}
-            <div className="absolute inset-0 bg-[#050507]/45" />
+            {/* Ambient vignette background blur & soft dark gradient over the image for perfect readability without washing out details */}
+            <div className="absolute inset-0 bg-gradient-to-b from-[#050507]/50 via-transparent to-[#050507]/75 backdrop-blur-[1px]" />
           </div>
 
           {/* Poetry Slideshow Stage (poetryIndex < 5) */}
