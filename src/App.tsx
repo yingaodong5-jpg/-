@@ -23,6 +23,7 @@ import { SceneState, Sunflower, TrackedHand } from './types';
 import ArtCanvas from './components/ArtCanvas';
 import CameraDetector from './components/CameraDetector';
 // @ts-ignore
+// Imported background assets resolved properly by Vite builder for cross-platform deployments (e.g., Cloudflare Pages)
 import wastelandBgImg from './assets/images/wasteland_bg_1781142029934.jpg';
 // @ts-ignore
 import wastelandBgImg1 from './assets/images/wasteland_bg_1_1781743921275.jpg';
