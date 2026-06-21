@@ -24,19 +24,19 @@ import ArtCanvas from './components/ArtCanvas';
 import CameraDetector from './components/CameraDetector';
 // @ts-ignore
 // Imported background assets resolved properly by Vite builder for cross-platform deployments (e.g., Cloudflare Pages)
-import wastelandBgImg from './assets/images/wasteland_bg_1781142029934.jpg';
+import wastelandBgImg from './assets/images/wasteland_scene_1_1782041611411.jpg';
 // @ts-ignore
-import wastelandBgImg1 from './assets/images/wasteland_bg_1_1781743921275.jpg';
+import wastelandBgImg1 from './assets/images/wasteland_scene_1_1782041611411.jpg';
 // @ts-ignore
-import wastelandBgImg2 from './assets/images/wasteland_bg_2_1781743941904.jpg';
+import wastelandBgImg2 from './assets/images/wasteland_scene_2_1782041628748.jpg';
 // @ts-ignore
-import wastelandBgImg3 from './assets/images/wasteland_bg_3_1781744536780.jpg';
+import wastelandBgImg3 from './assets/images/wasteland_scene_3_1782041648344.jpg';
 // @ts-ignore
-import wastelandBgImg4 from './assets/images/wasteland_bg_4_1781744559706.jpg';
+import wastelandBgImg4 from './assets/images/wasteland_scene_4_1782041666571.jpg';
 // @ts-ignore
-import wastelandBgImg5 from './assets/images/wasteland_bg_5_1781744578099.jpg';
+import wastelandBgImg5 from './assets/images/wasteland_scene_5_1782041685259.jpg';
 // @ts-ignore
-import modernCityBgImg from './assets/images/wasteland_sunrays_bg_1781744924704.jpg';
+import modernCityBgImg from './assets/images/wasteland_sunrays_new_1782042349832.jpg';
 // @ts-ignore
 import collectingSeedsBgImg from './assets/images/collecting_seeds_bg_1781744195771.jpg';
 // @ts-ignore
