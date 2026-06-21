@@ -40,37 +40,42 @@ import modernCityBgImg from './assets/images/wasteland_sunrays_new_1782042349832
 // @ts-ignore
 import collectingSeedsBgImg from './assets/images/collecting_seeds_bg_1781744195771.jpg';
 // @ts-ignore
-import sunflowerImgAsset from './assets/images/sunflower_asset_1782040614935.jpg';
+import sunflowerImgAsset from './assets/images/sunflower_asset_1781143850977.png';
 
 // Process loaded sunflower image to make its white background perfectly transparent
-function makeWhiteTransparent(img: HTMLImageElement): HTMLCanvasElement {
+function makeWhiteTransparent(img: HTMLImageElement): HTMLCanvasElement | HTMLImageElement {
   const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
+  canvas.width = img.width || 100;
+  canvas.height = img.height || 100;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return canvas;
+  if (!ctx) return img;
 
-  ctx.drawImage(img, 0, 0);
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imgData.data;
+  try {
+    ctx.drawImage(img, 0, 0);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
 
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i+1];
-    const b = data[i+2];
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
 
-    const minChannelVal = Math.min(r, g, b);
+      const minChannelVal = Math.min(r, g, b);
 
-    if (minChannelVal > 200) {
-      data[i+3] = 0;
-    } else if (minChannelVal > 175) {
-      const blendFactor = (200 - minChannelVal) / (200 - 175);
-      data[i+3] = Math.max(0, Math.min(255, Math.floor(data[i+3] * blendFactor)));
+      if (minChannelVal > 200) {
+        data[i+3] = 0;
+      } else if (minChannelVal > 175) {
+        const blendFactor = (200 - minChannelVal) / (200 - 175);
+        data[i+3] = Math.max(0, Math.min(255, Math.floor(data[i+3] * blendFactor)));
+      }
     }
-  }
 
-  ctx.putImageData(imgData, 0, 0);
-  return canvas;
+    ctx.putImageData(imgData, 0, 0);
+    return canvas;
+  } catch (e) {
+    console.warn("Soft sandbox / CORS warning on getImageData, using raw image element directly:", e);
+    return img;
+  }
 }
 
 // Global constants for "左手右手" (Left Hand Right Hand) melody
@@ -706,7 +711,7 @@ export default function App() {
   const [loadedBgImage, setLoadedBgImage] = useState<HTMLImageElement | null>(null);
   const [loadedCollectingSeedsBgImage, setLoadedCollectingSeedsBgImage] = useState<HTMLImageElement | null>(null);
   const [loadedModernCityBgImage, setLoadedModernCityBgImage] = useState<HTMLImageElement | null>(null);
-  const [loadedSunflowerImage, setLoadedSunflowerImage] = useState<HTMLCanvasElement | null>(null);
+  const [loadedSunflowerImage, setLoadedSunflowerImage] = useState<HTMLCanvasElement | HTMLImageElement | null>(null);
   const [loadingAssets, setLoadingAssets] = useState<boolean>(true);
 
   // Buffer assets immediately on mount
@@ -716,9 +721,17 @@ export default function App() {
     let mcBgReady = false;
     let sfReady = false;
 
+    // Safety timeout: If preloading takes more than 3.5 seconds, enter the application anyway.
+    // This totally eliminates the risk of an infinite loading screen.
+    const safetyTimeoutId = setTimeout(() => {
+      console.warn('Asset loading took more than 3.5s. Bypassing preloader to enter application.');
+      setLoadingAssets(false);
+    }, 3500);
+
     const checkAllLoaded = () => {
       if (bgReady && clBgReady && mcBgReady && sfReady) {
         setLoadingAssets(false);
+        clearTimeout(safetyTimeoutId);
       }
     };
 
@@ -815,6 +828,10 @@ export default function App() {
       fallback.src = 'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=800&auto=format&fit=crop';
     };
     sfImg.src = sunflowerImgAsset;
+
+    return () => {
+      clearTimeout(safetyTimeoutId);
+    };
   }, []);
 
   // UI Panels states
@@ -907,41 +924,41 @@ export default function App() {
           onPointerCancel={handleCoverPointerLeaveOrUp}
         >
           
-          {/* Background Slideshow (crossfade sequentially with high opacity for ultimate clarity) */}
+          {/* Background Slideshow (crossfade sequentially with 55% opacity for perfect readability) */}
           <div className="absolute inset-0 select-none overflow-hidden pointer-events-none z-0">
             <img 
-              src={wastelandBgImg1} 
+               src={wastelandBgImg1} 
               alt="Nuclear winter scene 1" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 0 ? 0.92 : 0 }}
+              style={{ opacity: coverBgIndex === 0 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
-              src={wastelandBgImg2} 
+               src={wastelandBgImg2} 
               alt="Nuclear winter scene 2" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 1 ? 0.92 : 0 }}
+              style={{ opacity: coverBgIndex === 1 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
-              src={wastelandBgImg3} 
+               src={wastelandBgImg3} 
               alt="Nuclear winter scene 3" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 2 ? 0.92 : 0 }}
+              style={{ opacity: coverBgIndex === 2 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
-              src={wastelandBgImg4} 
+               src={wastelandBgImg4} 
               alt="Nuclear winter scene 4" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 3 ? 0.92 : 0 }}
+              style={{ opacity: coverBgIndex === 3 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
-              src={wastelandBgImg5} 
+               src={wastelandBgImg5} 
               alt="Nuclear winter scene 5" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: coverBgIndex === 4 ? 0.92 : 0 }}
+              style={{ opacity: coverBgIndex === 4 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             {/* Ambient vignette background blur & soft dark gradient over the image for perfect readability without washing out details */}
