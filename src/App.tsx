@@ -24,21 +24,21 @@ import ArtCanvas from './components/ArtCanvas';
 import CameraDetector from './components/CameraDetector';
 // @ts-ignore
 // Imported background assets resolved properly by Vite builder for cross-platform deployments (e.g., Cloudflare Pages)
-import wastelandBgImg from './assets/images/wasteland_scene_1_1782041611411.jpg';
+import wastelandBgImg from './assets/images/wasteland_scene_1_1782235766384.jpg';
 // @ts-ignore
-import wastelandBgImg1 from './assets/images/wasteland_scene_1_1782041611411.jpg';
+import wastelandBgImg1 from './assets/images/wasteland_scene_1_1782235766384.jpg';
 // @ts-ignore
-import wastelandBgImg2 from './assets/images/wasteland_scene_2_1782041628748.jpg';
+import wastelandBgImg2 from './assets/images/wasteland_scene_2_1782235783454.jpg';
 // @ts-ignore
-import wastelandBgImg3 from './assets/images/wasteland_scene_3_1782041648344.jpg';
+import wastelandBgImg3 from './assets/images/wasteland_scene_3_1782235798219.jpg';
 // @ts-ignore
-import wastelandBgImg4 from './assets/images/wasteland_scene_4_1782041666571.jpg';
+import wastelandBgImg4 from './assets/images/wasteland_scene_4_1782235814807.jpg';
 // @ts-ignore
-import wastelandBgImg5 from './assets/images/wasteland_scene_5_1782041685259.jpg';
+import wastelandBgImg5 from './assets/images/wasteland_scene_5_1782235828032.jpg';
 // @ts-ignore
-import modernCityBgImg from './assets/images/wasteland_sunrays_new_1782042349832.jpg';
+import modernCityBgImg from './assets/images/wasteland_sunrays_new_1782235853787.jpg';
 // @ts-ignore
-import collectingSeedsBgImg from './assets/images/collecting_seeds_bg_1781744195771.jpg';
+import collectingSeedsBgImg from './assets/images/collecting_seeds_bg_1782235866735.jpg';
 // @ts-ignore
 import sunflowerImgAsset from './assets/images/sunflower_asset_1782040614935.jpg';
 
@@ -780,10 +780,10 @@ export default function App() {
         };
         fallback.crossOrigin = 'anonymous'; // support cross-origin manipulations
         const fallbacks = [
-          'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1531973968078-9bb02785f13d?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1533105079780-92b9be482077?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1534224039826-c7a0dea0e66a?q=80&w=1600&auto=format&fit=crop',
           'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1447069387593-a5de0862481e?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1508962914676-134849a727f0?q=80&w=1600&auto=format&fit=crop',
           'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1600&auto=format&fit=crop'
         ];
         fallback.src = fallbacks[idx];
@@ -833,7 +833,7 @@ export default function App() {
         checkAllLoaded();
       };
       fallback.crossOrigin = 'anonymous';
-      fallback.src = 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=1600&auto=format&fit=crop';
+      fallback.src = 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1600&auto=format&fit=crop';
     };
     mcImg.src = modernCityBgImg;
 
