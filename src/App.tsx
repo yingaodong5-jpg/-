@@ -709,6 +709,7 @@ export default function App() {
   
   // Preloading image assets immediately at app startup
   const [loadedBgImage, setLoadedBgImage] = useState<HTMLImageElement | null>(null);
+  const [loadedWastelandBgImages, setLoadedWastelandBgImages] = useState<HTMLImageElement[]>([]);
   const [loadedCollectingSeedsBgImage, setLoadedCollectingSeedsBgImage] = useState<HTMLImageElement | null>(null);
   const [loadedModernCityBgImage, setLoadedModernCityBgImage] = useState<HTMLImageElement | null>(null);
   const [loadedSunflowerImage, setLoadedSunflowerImage] = useState<HTMLCanvasElement | HTMLImageElement | null>(null);
@@ -735,28 +736,60 @@ export default function App() {
       }
     };
 
-    const img = new Image();
-    img.onload = () => {
-      setLoadedBgImage(img);
-      bgReady = true;
-      checkAllLoaded();
-    };
-    img.onerror = () => {
-      console.warn('Failed preloading local background. Trying high-quality CDN fallback...');
-      const fallback = new Image();
-      fallback.onload = () => {
-        setLoadedBgImage(fallback);
-        bgReady = true;
-        checkAllLoaded();
+    const bgSrcs = [
+      wastelandBgImg1,
+      wastelandBgImg2,
+      wastelandBgImg3,
+      wastelandBgImg4,
+      wastelandBgImg5
+    ];
+    let loadedCount = 0;
+    const imgs: HTMLImageElement[] = [];
+
+    bgSrcs.forEach((src, idx) => {
+      const im = new Image();
+      im.onload = () => {
+        imgs[idx] = im;
+        loadedCount++;
+        if (loadedCount === bgSrcs.length) {
+          setLoadedWastelandBgImages(imgs.filter(Boolean));
+          setLoadedBgImage(imgs[0] || null);
+          bgReady = true;
+          checkAllLoaded();
+        }
       };
-      fallback.onerror = () => {
-        bgReady = true; // prevent blocking forever
-        checkAllLoaded();
+      im.onerror = () => {
+        console.warn(`Failed preloading local background ${idx + 1}. Trying high-quality CDN fallback...`);
+        const fallback = new Image();
+        fallback.onload = () => {
+          imgs[idx] = fallback;
+          loadedCount++;
+          if (loadedCount === bgSrcs.length) {
+            setLoadedWastelandBgImages(imgs.filter(Boolean));
+            setLoadedBgImage(imgs[0] || null);
+            bgReady = true;
+            checkAllLoaded();
+          }
+        };
+        fallback.onerror = () => {
+          loadedCount++;
+          if (loadedCount === bgSrcs.length) {
+            bgReady = true; // prevent blocking forever
+            checkAllLoaded();
+          }
+        };
+        fallback.crossOrigin = 'anonymous'; // support cross-origin manipulations
+        const fallbacks = [
+          'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1518005020951-eccb494ad742?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=1600&auto=format&fit=crop'
+        ];
+        fallback.src = fallbacks[idx];
       };
-      fallback.crossOrigin = 'anonymous'; // support cross-origin manipulations
-      fallback.src = 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1600&auto=format&fit=crop';
-    };
-    img.src = wastelandBgImg;
+      im.src = src;
+    });
 
     const clImg = new Image();
     clImg.onload = () => {
@@ -1344,6 +1377,7 @@ export default function App() {
             }
           }}
           loadedBgImage={loadedBgImage}
+          loadedWastelandBgImages={loadedWastelandBgImages}
           loadedCollectingSeedsBgImage={loadedCollectingSeedsBgImage}
           loadedModernCityBgImage={loadedModernCityBgImage}
           loadedSunflowerImage={loadedSunflowerImage}

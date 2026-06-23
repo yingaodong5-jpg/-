@@ -18,6 +18,7 @@ interface ArtCanvasProps {
   onHandshakeTriggered: () => void;
   onSeedCollected: () => void;
   loadedBgImage: HTMLImageElement | null;
+  loadedWastelandBgImages: HTMLImageElement[];
   loadedCollectingSeedsBgImage?: HTMLImageElement | null;
   loadedModernCityBgImage?: HTMLImageElement | null;
   loadedSunflowerImage: HTMLCanvasElement | null;
@@ -35,6 +36,7 @@ export default function ArtCanvas({
   onHandshakeTriggered,
   onSeedCollected,
   loadedBgImage,
+  loadedWastelandBgImages,
   loadedCollectingSeedsBgImage,
   loadedModernCityBgImage,
   loadedSunflowerImage,
@@ -521,13 +523,13 @@ export default function ArtCanvas({
           seedTransitionProgressRef.current = Math.min(1.0, seedTransitionProgressRef.current + 0.012); // smooth 1-second transition
           const p = seedTransitionProgressRef.current;
           
-          // Draw grey background base
-          drawGreyBackground(ctx, width, height, time, loadedCollectingSeedsBgImage);
+          // Draw grey background base with slideshow
+          drawGreyBackground(ctx, width, height, time, null, loadedWastelandBgImages);
           
           // Overlap wasteland background with alpha p
           ctx.save();
           ctx.globalAlpha = p;
-          drawWasteland(ctx, width, height, time, loadedBgImage);
+          drawWasteland(ctx, width, height, time, null, loadedWastelandBgImages);
           ctx.restore();
           
           if (p >= 1.0) {
@@ -536,10 +538,10 @@ export default function ArtCanvas({
             onSceneStateChange('wasteland');
           }
         } else {
-          drawGreyBackground(ctx, width, height, time, loadedCollectingSeedsBgImage);
+          drawGreyBackground(ctx, width, height, time, null, loadedWastelandBgImages);
         }
       } else if (sceneState === 'wasteland') {
-        drawWasteland(ctx, width, height, time, loadedBgImage);
+        drawWasteland(ctx, width, height, time, null, loadedWastelandBgImages);
       } else if (sceneState === 'modern_city') {
         drawModernCity(ctx, width, height, time, loadedModernCityBgImage);
       } else if (sceneState === 'transition') {
@@ -549,7 +551,7 @@ export default function ArtCanvas({
         const p = transitionProgressRef.current;
 
         // Draw wasteland base
-        drawWasteland(ctx, width, height, time, loadedBgImage);
+        drawWasteland(ctx, width, height, time, null, loadedWastelandBgImages);
 
         // Draw modern city overlaid with gradual transparency alpha
         ctx.save();
@@ -771,7 +773,7 @@ export default function ArtCanvas({
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [dimensions, sceneState, sunflowers, effectiveHands, activeSeed, loadedBgImage, loadedCollectingSeedsBgImage, loadedModernCityBgImage, loadedSunflowerImage]);
+  }, [dimensions, sceneState, sunflowers, effectiveHands, activeSeed, loadedBgImage, loadedWastelandBgImages, loadedCollectingSeedsBgImage, loadedModernCityBgImage, loadedSunflowerImage]);
 
   // Make sure we reset transition progress counters on resets
   useEffect(() => {

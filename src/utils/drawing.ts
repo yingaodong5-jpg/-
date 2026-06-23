@@ -5,27 +5,80 @@
 
 import { Sunflower, Particle } from '../types';
 
+function drawCoverImageFit(ctx: CanvasRenderingContext2D, img: HTMLImageElement, width: number, height: number) {
+  const imgRatio = img.width / img.height;
+  const canvasRatio = width / height;
+  let sWidth, sHeight, sx, sy;
+
+  if (canvasRatio > imgRatio) {
+    sWidth = img.width;
+    sHeight = img.width / canvasRatio;
+    sx = 0;
+    sy = (img.height - sHeight) / 2;
+  } else {
+    sWidth = img.height * canvasRatio;
+    sHeight = img.height;
+    sx = (img.width - sWidth) / 2;
+    sy = 0;
+  }
+
+  ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, width, height);
+}
+
 // Procedure to draw the futurist heavy metal ruins (wasteland)
-export function drawWasteland(ctx: CanvasRenderingContext2D, width: number, height: number, time: number, bgImage?: HTMLImageElement | null) {
-  if (bgImage) {
-    // 1. Maintain object-fit: cover aspect ratio scaling on the canvas
-    const imgRatio = bgImage.width / bgImage.height;
-    const canvasRatio = width / height;
-    let sWidth, sHeight, sx, sy;
+export function drawWasteland(
+  ctx: CanvasRenderingContext2D, 
+  width: number, 
+  height: number, 
+  time: number, 
+  bgImage?: HTMLImageElement | null,
+  bgImages?: (HTMLImageElement | null)[]
+) {
+  // Draw fallback elegant dark background first as underlay
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+  skyGrad.addColorStop(0, '#131110');
+  skyGrad.addColorStop(1, '#090807');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, width, height);
 
-    if (canvasRatio > imgRatio) {
-      sWidth = bgImage.width;
-      sHeight = bgImage.width / canvasRatio;
-      sx = 0;
-      sy = (bgImage.height - sHeight) / 2;
-    } else {
-      sWidth = bgImage.height * canvasRatio;
-      sHeight = bgImage.height;
-      sx = (bgImage.width - sWidth) / 2;
-      sy = 0;
+  const imagesToUse = (bgImages && bgImages.length > 0) 
+    ? bgImages.filter((img): img is HTMLImageElement => img !== null) 
+    : (bgImage ? [bgImage] : []);
+
+  if (imagesToUse.length > 0) {
+    ctx.save();
+    
+    // Smooth crossfade slideshow calculation
+    // Duration per image: 6000ms, Blend time: 1500ms
+    const cycleTime = 6000;
+    const blendTime = 1500;
+    const totalImages = imagesToUse.length;
+    
+    const currentIndex = Math.floor(time / cycleTime) % totalImages;
+    const nextIndex = (currentIndex + 1) % totalImages;
+    const timeLeft = time % cycleTime;
+    
+    const currentImg = imagesToUse[currentIndex];
+    if (currentImg) {
+      if (timeLeft > (cycleTime - blendTime)) {
+        // We are within the crossfade window
+        const progress = (timeLeft - (cycleTime - blendTime)) / blendTime;
+        
+        ctx.globalAlpha = 0.55 * (1 - progress);
+        drawCoverImageFit(ctx, currentImg, width, height);
+        
+        const nextImg = imagesToUse[nextIndex];
+        if (nextImg) {
+          ctx.globalAlpha = 0.55 * progress;
+          drawCoverImageFit(ctx, nextImg, width, height);
+        }
+      } else {
+        ctx.globalAlpha = 0.55;
+        drawCoverImageFit(ctx, currentImg, width, height);
+      }
     }
-
-    ctx.drawImage(bgImage, sx, sy, sWidth, sHeight, 0, 0, width, height);
+    
+    ctx.restore();
 
     // 2. Add a cinematic vignette filter
     const vignette = ctx.createRadialGradient(
@@ -60,17 +113,17 @@ export function drawWasteland(ctx: CanvasRenderingContext2D, width: number, heig
 
     return;
   }
-
-  // Fallback elegant dark background if image hasn't loaded yet
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
-  skyGrad.addColorStop(0, '#131110');
-  skyGrad.addColorStop(1, '#090807');
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, width, height);
 }
 
 // Procedure to draw the grey, heavy metal particle collecting scene background (Dystopian Greenhouse vibe)
-export function drawGreyBackground(ctx: CanvasRenderingContext2D, width: number, height: number, time: number, bgImage?: HTMLImageElement | null) {
+export function drawGreyBackground(
+  ctx: CanvasRenderingContext2D, 
+  width: number, 
+  height: number, 
+  time: number, 
+  bgImage?: HTMLImageElement | null,
+  bgImages?: (HTMLImageElement | null)[]
+) {
   // A dark industrial metallic slate gradient
   const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
   bgGrad.addColorStop(0, '#2e2e35');   // Matte dark steel
@@ -79,28 +132,40 @@ export function drawGreyBackground(ctx: CanvasRenderingContext2D, width: number,
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
 
-  if (bgImage) {
+  const imagesToUse = (bgImages && bgImages.length > 0) 
+    ? bgImages.filter((img): img is HTMLImageElement => img !== null) 
+    : (bgImage ? [bgImage] : []);
+
+  if (imagesToUse.length > 0) {
     ctx.save();
-    ctx.globalAlpha = 0.55; // 50%-60% opacity as requested by user
-
-    // Maintain object-fit: cover aspect ratio scaling on the canvas
-    const imgRatio = bgImage.width / bgImage.height;
-    const canvasRatio = width / height;
-    let sWidth, sHeight, sx, sy;
-
-    if (canvasRatio > imgRatio) {
-      sWidth = bgImage.width;
-      sHeight = bgImage.width / canvasRatio;
-      sx = 0;
-      sy = (bgImage.height - sHeight) / 2;
-    } else {
-      sWidth = bgImage.height * canvasRatio;
-      sHeight = bgImage.height;
-      sx = (bgImage.width - sWidth) / 2;
-      sy = 0;
+    
+    // Smooth crossfade slideshow calculation
+    const cycleTime = 6000;
+    const blendTime = 1500;
+    const totalImages = imagesToUse.length;
+    
+    const currentIndex = Math.floor(time / cycleTime) % totalImages;
+    const nextIndex = (currentIndex + 1) % totalImages;
+    const timeLeft = time % cycleTime;
+    
+    const currentImg = imagesToUse[currentIndex];
+    if (currentImg) {
+      if (timeLeft > (cycleTime - blendTime)) {
+        const progress = (timeLeft - (cycleTime - blendTime)) / blendTime;
+        
+        ctx.globalAlpha = 0.55 * (1 - progress);
+        drawCoverImageFit(ctx, currentImg, width, height);
+        
+        const nextImg = imagesToUse[nextIndex];
+        if (nextImg) {
+          ctx.globalAlpha = 0.55 * progress;
+          drawCoverImageFit(ctx, nextImg, width, height);
+        }
+      } else {
+        ctx.globalAlpha = 0.55;
+        drawCoverImageFit(ctx, currentImg, width, height);
+      }
     }
-
-    ctx.drawImage(bgImage, sx, sy, sWidth, sHeight, 0, 0, width, height);
     ctx.restore();
   }
 
