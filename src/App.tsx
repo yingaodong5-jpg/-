@@ -780,11 +780,11 @@ export default function App() {
         };
         fallback.crossOrigin = 'anonymous'; // support cross-origin manipulations
         const fallbacks = [
-          'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1518005020951-eccb494ad742?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=1600&auto=format&fit=crop'
+          'https://images.unsplash.com/photo-1534224039826-c7a0eda0e5b3?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1527853787696-f7be74f2e39a?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1549417229-aa67d3263c09?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1508873696983-2df519f0397e?q=80&w=1600&auto=format&fit=crop'
         ];
         fallback.src = fallbacks[idx];
       };
@@ -810,7 +810,7 @@ export default function App() {
         checkAllLoaded();
       };
       fallback.crossOrigin = 'anonymous';
-      fallback.src = 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?q=80&w=1600&auto=format&fit=crop';
+      fallback.src = 'https://images.unsplash.com/photo-1534224039826-c7a0eda0e5b3?q=80&w=1600&auto=format&fit=crop';
     };
     clImg.src = collectingSeedsBgImg;
 
@@ -960,35 +960,35 @@ export default function App() {
           {/* Background Slideshow (crossfade sequentially with 55% opacity for perfect readability) */}
           <div className="absolute inset-0 select-none overflow-hidden pointer-events-none z-0">
             <img 
-               src={wastelandBgImg1} 
+               src={loadedWastelandBgImages[0]?.src || wastelandBgImg1} 
               alt="Nuclear winter scene 1" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
               style={{ opacity: coverBgIndex === 0 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
-               src={wastelandBgImg2} 
+               src={loadedWastelandBgImages[1]?.src || wastelandBgImg2} 
               alt="Nuclear winter scene 2" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
               style={{ opacity: coverBgIndex === 1 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
-               src={wastelandBgImg3} 
+               src={loadedWastelandBgImages[2]?.src || wastelandBgImg3} 
               alt="Nuclear winter scene 3" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
               style={{ opacity: coverBgIndex === 2 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
-               src={wastelandBgImg4} 
+               src={loadedWastelandBgImages[3]?.src || wastelandBgImg4} 
               alt="Nuclear winter scene 4" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
               style={{ opacity: coverBgIndex === 3 ? 0.55 : 0 }}
               referrerPolicy="no-referrer"
             />
             <img 
-               src={wastelandBgImg5} 
+               src={loadedWastelandBgImages[4]?.src || wastelandBgImg5} 
               alt="Nuclear winter scene 5" 
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
               style={{ opacity: coverBgIndex === 4 ? 0.55 : 0 }}
