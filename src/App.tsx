@@ -780,11 +780,11 @@ export default function App() {
         };
         fallback.crossOrigin = 'anonymous'; // support cross-origin manipulations
         const fallbacks = [
-          'https://images.unsplash.com/photo-1534224039826-c7a0eda0e5b3?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1527853787696-f7be74f2e39a?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1549417229-aa67d3263c09?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?q=80&w=1600&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1508873696983-2df519f0397e?q=80&w=1600&auto=format&fit=crop'
+          'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1531973968078-9bb02785f13d?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1447069387593-a5de0862481e?q=80&w=1600&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1600&auto=format&fit=crop'
         ];
         fallback.src = fallbacks[idx];
       };
@@ -810,7 +810,7 @@ export default function App() {
         checkAllLoaded();
       };
       fallback.crossOrigin = 'anonymous';
-      fallback.src = 'https://images.unsplash.com/photo-1534224039826-c7a0eda0e5b3?q=80&w=1600&auto=format&fit=crop';
+      fallback.src = 'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?q=80&w=1600&auto=format&fit=crop';
     };
     clImg.src = collectingSeedsBgImg;
 
@@ -833,7 +833,7 @@ export default function App() {
         checkAllLoaded();
       };
       fallback.crossOrigin = 'anonymous';
-      fallback.src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1600&auto=format&fit=crop';
+      fallback.src = 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=1600&auto=format&fit=crop';
     };
     mcImg.src = modernCityBgImg;
 
